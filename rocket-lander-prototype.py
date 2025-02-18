@@ -8,8 +8,8 @@ import sys
 pygame.init()
 
 # Constants
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
+SCREEN_WIDTH = 1920
+SCREEN_HEIGHT = 1080
 FPS = 60
 DT = 1 / FPS
 
@@ -74,40 +74,131 @@ class Rocket:
         if self.crashed or self.landed:
             return
 
-        # Left engine (LEFT ARROW or LEFT SHIFT)
+        # Bottom thrusters for vertical movement:
         if keys[pygame.K_LEFT] or keys[pygame.K_LSHIFT]:
             self.apply_thrust(-1)
             self.emit_particles(-1)
-            
-        # Right engine (RIGHT ARROW or RIGHT SHIFT)
         if keys[pygame.K_RIGHT] or keys[pygame.K_RSHIFT]:
             self.apply_thrust(1)
             self.emit_particles(1)
+        
+        # Top thrusters for pitch control (only apply torque):
+        if keys[pygame.K_q]:
+            self.apply_pitch_thrust(-1)
+            self.emit_top_particles(-1)
+        if keys[pygame.K_e]:
+            self.apply_pitch_thrust(1)
+            self.emit_top_particles(1)
 
     def apply_thrust(self, direction: int):
-        angle_rad = math.radians(self.angle)
-        thrust = THRUST_POWER
+        """
+        Apply thrust from a single engine.
+        direction: -1 for left engine, +1 for right engine.
+        """
+        # When a single engine is fired, we use half thrust.
+        local_thrust = pygame.Vector2(0, -THRUST_POWER * 0.5)
+        # Rotate the local thrust vector by the current angle so it always points "up" from the ship's perspective.
+        world_thrust = local_thrust.rotate(self.angle)
         
-        # Calculate thrust components
-        thrust_x = math.sin(angle_rad) * thrust * direction
-        thrust_y = -math.cos(angle_rad) * thrust
+        # Apply the thrust force to the rocket's velocity.
+        self.vel += world_thrust * DT
+
+        # Define the engine's offset in local coordinates.
+        # Adjust these values to match your ship's design. Here, left engine is at (-10, 10), right at (10, 10).
+        if direction < 0:
+            engine_offset = pygame.Vector2(-10, 10)
+        else:
+            engine_offset = pygame.Vector2(10, 10)
         
-        # Apply forces
-        self.vel.x += thrust_x * DT
-        self.vel.y += thrust_y * DT
+        # Rotate the engine offset so it is correctly positioned in world space relative to the ship.
+        world_offset = engine_offset.rotate(self.angle)
         
-        # Apply torque for rotation
-        self.angular_vel += TORQUE * direction * DT
+        # Calculate torque using the 2D cross product between the engine offset and the thrust force.
+        # This gives a scalar torque value: torque = offset.x * force.y - offset.y * force.x.
+        torque_effect = world_offset.x * world_thrust.y - world_offset.y * world_thrust.x
+
+        # Apply the torque to adjust the angular velocity.
+        # The divisor (100.0) is a tuning parameter to control the strength of the rotation.
+        self.angular_vel += (torque_effect / 100.0) * DT
+
+    def apply_pitch_thrust(self, direction: int):
+        """
+        Apply pitch thrust from a top thruster.
+        direction: -1 for left top thruster, +1 for right top thruster.
+        This function applies torque only (no net linear force).
+        """
+        # Define a local thrust vector that will generate torque.
+        # Here we use the same magnitude as a single bottom engine, but you can adjust if needed.
+        local_thrust = pygame.Vector2(0, -THRUST_POWER * 0.5)
+        # Rotate it so it’s in world-space relative to the rocket's current orientation.
+        world_thrust = local_thrust.rotate(self.angle)
+        
+        # Define the engine offset for top thrusters in the rocket's local coordinate system.
+        # These should be positioned at the top of the rocket.
+        if direction < 0:
+            # Left top thruster (adjust as necessary)
+            engine_offset = pygame.Vector2(-5, -20)
+        else:
+            # Right top thruster
+            engine_offset = pygame.Vector2(5, -20)
+        
+        # Rotate the offset into world coordinates.
+        world_offset = engine_offset.rotate(self.angle)
+        
+        # Compute the torque from the cross product:
+        # torque = offset.x * force.y - offset.y * force.x
+        torque_effect = world_offset.x * world_thrust.y - world_offset.y * world_thrust.x
+        
+        # Apply the torque (tuning factor of 100.0; adjust as needed)
+        self.angular_vel += (torque_effect / 200.0) * DT
+
+        # NOTE: We do not add to self.vel so that the pitch thrusters produce no net linear acceleration.
 
     def emit_particles(self, direction: int):
-        angle_rad = math.radians(self.angle)
-        offset = pygame.Vector2(
-            math.sin(angle_rad) * 10 * direction,
-            math.cos(angle_rad) * 10
-        )
+        """
+        Emit particles from the bottom thrusters.
+        direction: -1 for left thruster, +1 for right thruster.
+        """
+        # Define the engine offset in local coordinates for bottom thrusters.
+        # These values should match the positions of your bottom thrusters.
+        if direction < 0:
+            engine_offset = pygame.Vector2(-10, 10)
+        else:
+            engine_offset = pygame.Vector2(10, 10)
         
-        particle_pos = self.pos + offset
-        particle_angle = angle_rad + math.pi + random.uniform(-0.2, 0.2)
+        # Rotate the engine offset by the rocket's current angle.
+        world_offset = engine_offset.rotate(self.angle)
+        
+        # Calculate the world position for the particles.
+        particle_pos = self.pos + world_offset
+        
+        # Determine the particle emission angle:
+        # Particles emit opposite to the thrust direction, with a bit of random variation.
+        particle_angle = math.radians(self.angle) + math.pi + random.uniform(-0.2, 0.2)
+        
+        # Create and add the particle.
+        self.particles.append(Particle(particle_pos.x, particle_pos.y, particle_angle))
+
+    def emit_top_particles(self, direction: int):
+        """
+        Emit particles from the top thrusters.
+        direction: -1 for left top thruster, +1 for right top thruster.
+        """
+        # Compute the offset for top thrusters in local coordinates.
+        if direction < 0:
+            engine_offset = pygame.Vector2(-5, -20)
+        else:
+            engine_offset = pygame.Vector2(5, -20)
+        
+        # Rotate offset to world space.
+        world_offset = engine_offset.rotate(self.angle)
+        
+        # Determine the world position of the thruster.
+        particle_pos = self.pos + world_offset
+        # For a top thruster, we want the particles to go out opposite to the thrust.
+        # That is, if the thruster fires downward relative to the rocket, emit particles downward.
+        local_particle_thrust = pygame.Vector2(0, THRUST_POWER * 0.5)
+        particle_angle = math.radians(self.angle) + math.pi + random.uniform(-0.2, 0.2)
         
         self.particles.append(Particle(particle_pos.x, particle_pos.y, particle_angle))
 
