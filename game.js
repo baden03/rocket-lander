@@ -1,3 +1,4 @@
+// version 0.0.9
 // Get the canvas and context
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -18,6 +19,29 @@ const thrustButtonHeight = 100;
 const pitchButtonWidth = 60;
 const pitchButtonHeight = 60;
 const buttonGap = 10;
+
+// Fullscreen button
+const fullscreenButton = document.getElementById('fullscreenButton');
+fullscreenButton.addEventListener('click', () => {
+  if (canvas.requestFullscreen) {
+    canvas.requestFullscreen();
+  } else if (canvas.webkitRequestFullscreen) { /* Safari */
+    canvas.webkitRequestFullscreen();
+  } else if (canvas.msRequestFullscreen) { /* IE11 */
+    canvas.msRequestFullscreen();
+  }
+});
+
+// Resize canvas when the window is resized
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    // Update the global dimensions
+    SCREEN_WIDTH = canvas.width;
+    SCREEN_HEIGHT = canvas.height;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas(); // Call it on load
 
 // Bottom thruster buttons
 const thrustLeftButton = {
@@ -62,14 +86,12 @@ function degToRad(degrees) {
 
 // Function to draw an offscreen arrow pointing toward the rocket when it's off the canvas.
 function drawOffscreenArrow(ctx, rocket) {
-  // Use the canvas center as a reference
   const cx = SCREEN_WIDTH / 2;
   const cy = SCREEN_HEIGHT / 2;
   const dx = rocket.pos.x - cx;
   const dy = rocket.pos.y - cy;
   const angle = Math.atan2(dy, dx);
 
-  // Determine how far we can go in that direction before hitting a boundary
   const halfWidth = SCREEN_WIDTH / 2;
   const halfHeight = SCREEN_HEIGHT / 2;
   const cosA = Math.cos(angle);
@@ -77,11 +99,9 @@ function drawOffscreenArrow(ctx, rocket) {
   const scaleX = halfWidth / Math.abs(cosA);
   const scaleY = halfHeight / Math.abs(sinA);
   const scale = Math.min(scaleX, scaleY);
-  // Multiply by a factor (0.9) to add some margin from the edge
   const arrowX = cx + cosA * scale * 0.9;
   const arrowY = cy + sinA * scale * 0.9;
 
-  // Draw a simple arrow (a triangle) pointing in the proper direction
   ctx.save();
   ctx.translate(arrowX, arrowY);
   ctx.rotate(angle);
@@ -104,7 +124,6 @@ class Particle {
       x: Math.cos(angle) * speed,
       y: Math.sin(angle) * speed,
     };
-    // Increased lifetime for better visibility
     this.lifetime = 0.5 + Math.random() * 0.5;
     this.color = 'yellow';
   }
@@ -125,7 +144,7 @@ class Particle {
     const alpha = Math.min(this.lifetime / 1.0, 1);
     ctx.fillStyle = `rgba(255, 255, 0, ${alpha})`;
     ctx.beginPath();
-    ctx.arc(this.pos.x, this.pos.y, 3, 0, 2 * Math.PI); // radius 3 for visibility
+    ctx.arc(this.pos.x, this.pos.y, 3, 0, 2 * Math.PI);
     ctx.fill();
     ctx.restore();
   }
@@ -136,7 +155,7 @@ class Rocket {
   constructor(x, y) {
     this.pos = { x: x, y: y };
     this.vel = { x: 0, y: 0 };
-    this.angle = 0; // in degrees
+    this.angle = 0;
     this.angularVel = 0;
     this.particles = [];
     this.crashed = false;
@@ -301,6 +320,38 @@ class Terrain {
   }
 }
 
+// --- Avatar Drawing Function ---
+// Draws a clone of the rocket inside a box centered on the screen.
+function drawAvatar(ctx, rocket) {
+  const boxWidth = 150;
+  const boxHeight = 150;
+  const boxX = SCREEN_WIDTH / 2 - boxWidth / 2;
+  const boxY = SCREEN_HEIGHT / 2 - boxHeight / 2;
+  
+  // Draw the box outline
+  ctx.save();
+  ctx.strokeStyle = 'white';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+  
+  // Draw a scaled clone of the rocket inside the box
+  ctx.translate(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+  ctx.rotate(degToRad(rocket.angle));
+  ctx.strokeStyle = 'cyan';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  // Scale down the ship for the avatar; use a factor (e.g., 0.5)
+  const scale = 0.5;
+  const pts = rocket.points.map(pt => ({ x: pt.x * scale, y: pt.y * scale }));
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) {
+    ctx.lineTo(pts[i].x, pts[i].y);
+  }
+  ctx.closePath();
+  ctx.stroke();
+  ctx.restore();
+}
+
 // --- Game Class ---
 class Game {
   constructor() {
@@ -314,10 +365,9 @@ class Game {
       if (["ArrowLeft", "ArrowRight", "ShiftLeft", "ShiftRight"].includes(e.code)) {
         e.preventDefault();
       }
-      if (e.code === "KeyR" && (this.rocket.landed || this.rocket.crashed)) {
+      if (e.code === "KeyR" && (this.rocket.landed || this.rocket.crashed) ) {
         this.reset();
       }
-      // Enter key restart, only if game is in terminal state
       if (e.code === "Enter" && (this.rocket.landed || this.rocket.crashed)) {
         this.reset();
       }
@@ -471,7 +521,7 @@ class Game {
     ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
     this.terrain.draw(ctx);
     this.rocket.draw(ctx);
-    
+  
     // Draw on-screen buttons for thrusters and pitch
     ctx.strokeStyle = 'gray';
     ctx.lineWidth = 2;
@@ -479,14 +529,14 @@ class Game {
     ctx.strokeRect(thrustRightButton.x, thrustRightButton.y, thrustRightButton.width, thrustRightButton.height);
     ctx.strokeRect(pitchLeftButton.x, pitchLeftButton.y, pitchLeftButton.width, pitchLeftButton.height);
     ctx.strokeRect(pitchRightButton.x, pitchRightButton.y, pitchRightButton.width, pitchRightButton.height);
-    
+  
     ctx.fillStyle = 'gray';
     ctx.font = '16px Arial';
     ctx.fillText("Thrust L", thrustLeftButton.x + 10, thrustLeftButton.y + 25);
     ctx.fillText("Thrust R", thrustRightButton.x + 10, thrustRightButton.y + 25);
     ctx.fillText("Pitch L", pitchLeftButton.x + 5, pitchLeftButton.y + 20);
     ctx.fillText("Pitch R", pitchRightButton.x + 5, pitchRightButton.y + 20);
-    
+  
     // Display landing/crash messages and restart prompt
     if (this.rocket.landed || this.rocket.crashed) {
       ctx.font = '24px Arial';
@@ -509,10 +559,17 @@ class Game {
       ctx.font = '20px Arial';
       ctx.fillText("Restart", restartButton.x + 10, restartButton.y + 28);
     }
-    
+  
     // Draw an offscreen arrow if the rocket is not visible
     if (this.rocket.pos.x < 0 || this.rocket.pos.x > SCREEN_WIDTH || this.rocket.pos.y < 0 || this.rocket.pos.y > SCREEN_HEIGHT) {
       drawOffscreenArrow(ctx, this.rocket);
+      
+      // Fade in the minimap (avatar) when the ship is off-screen.
+      // Here, we set globalAlpha to 0.8 (adjust as desired) and draw the avatar.
+      ctx.save();
+      ctx.globalAlpha = 0.8;
+      drawAvatar(ctx, this.rocket);
+      ctx.restore();
     }
   }
   
