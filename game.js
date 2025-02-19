@@ -1,4 +1,3 @@
-// version 0.0.7
 // Get the canvas and context
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -19,27 +18,6 @@ const thrustButtonHeight = 100;
 const pitchButtonWidth = 60;
 const pitchButtonHeight = 60;
 const buttonGap = 10;
-
-const fullscreenButton = document.getElementById('fullscreenButton');
-fullscreenButton.addEventListener('click', () => {
-  if (canvas.requestFullscreen) {
-    canvas.requestFullscreen();
-  } else if (canvas.webkitRequestFullscreen) { /* Safari */
-    canvas.webkitRequestFullscreen();
-  } else if (canvas.msRequestFullscreen) { /* IE11 */
-    canvas.msRequestFullscreen();
-  }
-});
-
-function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    // Update the global dimensions
-    SCREEN_WIDTH = canvas.width;
-    SCREEN_HEIGHT = canvas.height;
-}
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas(); // Call it on load
 
 // Bottom thruster buttons
 const thrustLeftButton = {
@@ -80,6 +58,41 @@ const restartButton = {
 // Utility function for degree-radian conversion
 function degToRad(degrees) {
   return degrees * (Math.PI / 180);
+}
+
+// Function to draw an offscreen arrow pointing toward the rocket when it's off the canvas.
+function drawOffscreenArrow(ctx, rocket) {
+  // Use the canvas center as a reference
+  const cx = SCREEN_WIDTH / 2;
+  const cy = SCREEN_HEIGHT / 2;
+  const dx = rocket.pos.x - cx;
+  const dy = rocket.pos.y - cy;
+  const angle = Math.atan2(dy, dx);
+
+  // Determine how far we can go in that direction before hitting a boundary
+  const halfWidth = SCREEN_WIDTH / 2;
+  const halfHeight = SCREEN_HEIGHT / 2;
+  const cosA = Math.cos(angle);
+  const sinA = Math.sin(angle);
+  const scaleX = halfWidth / Math.abs(cosA);
+  const scaleY = halfHeight / Math.abs(sinA);
+  const scale = Math.min(scaleX, scaleY);
+  // Multiply by a factor (0.9) to add some margin from the edge
+  const arrowX = cx + cosA * scale * 0.9;
+  const arrowY = cy + sinA * scale * 0.9;
+
+  // Draw a simple arrow (a triangle) pointing in the proper direction
+  ctx.save();
+  ctx.translate(arrowX, arrowY);
+  ctx.rotate(angle);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-20, -10);
+  ctx.lineTo(-20, 10);
+  ctx.closePath();
+  ctx.fillStyle = 'red';
+  ctx.fill();
+  ctx.restore();
 }
 
 // --- Particle Class ---
@@ -136,7 +149,6 @@ class Rocket {
     ];
   }
   
-  // Get rotated and translated rocket points
   getTransformedPoints() {
     const rad = degToRad(this.angle);
     return this.points.map(pt => {
@@ -148,7 +160,6 @@ class Rocket {
     });
   }
   
-  // Apply thrust from bottom thrusters
   applyThrust(direction) {
     const thrust = THRUST_POWER * 0.5;
     const rad = degToRad(this.angle);
@@ -169,7 +180,6 @@ class Rocket {
     this.angularVel += (torqueEffect / 100.0) * DT;
   }
   
-  // Apply pitch thrust from top thrusters
   applyPitchThrust(direction) {
     const thrust = THRUST_POWER * 25;
     const rad = degToRad(this.angle);
@@ -188,7 +198,6 @@ class Rocket {
     this.angularVel += (torqueEffect / 200.0) * DT;
   }
   
-  // Emit particles from bottom thrusters
   emitParticles(direction) {
     const engineOffset = (direction < 0) ? { x: -10, y: 10 } : { x: 10, y: 10 };
     const rad = degToRad(this.angle);
@@ -204,7 +213,6 @@ class Rocket {
     this.particles.push(new Particle(particlePos.x, particlePos.y, particleAngle));
   }
   
-  // Emit particles from top thrusters
   emitTopParticles(direction) {
     const engineOffset = (direction < 0) ? { x: -5, y: -20 } : { x: 5, y: -20 };
     const rad = degToRad(this.angle);
@@ -309,7 +317,7 @@ class Game {
       if (e.code === "KeyR" && (this.rocket.landed || this.rocket.crashed)) {
         this.reset();
       }
-      // If Enter is pressed and the game is in a terminal state (landed or crashed), restart
+      // Enter key restart, only if game is in terminal state
       if (e.code === "Enter" && (this.rocket.landed || this.rocket.crashed)) {
         this.reset();
       }
@@ -317,8 +325,8 @@ class Game {
     });
     window.addEventListener('keyup', (e) => { this.keys[e.code] = false; });
     
-    // Use an object to track active pointers by pointerId
-    this.activePointers = {}; // e.g., { pointerId: {x, y}, ... }
+    // Multi-touch: track active pointers by pointerId
+    this.activePointers = {};
     canvas.addEventListener('pointerdown', this.handlePointerDown.bind(this));
     canvas.addEventListener('pointermove', this.handlePointerMove.bind(this));
     canvas.addEventListener('pointerup', this.handlePointerUp.bind(this));
@@ -361,21 +369,19 @@ class Game {
     delete this.activePointers[e.pointerId];
   }
   
-  // Process all active pointers to support multi-touch
   processMultiPointerInput() {
     for (let id in this.activePointers) {
       const pos = this.activePointers[id];
       const x = pos.x;
       const y = pos.y;
       
-      // If rocket is crashed/landed, check restart button first
+      // If rocket is crashed/landed, check the restart button first
       if ((this.rocket.crashed || this.rocket.landed) &&
           x >= restartButton.x && x <= restartButton.x + restartButton.width &&
           y >= restartButton.y && y <= restartButton.y + restartButton.height) {
         this.reset();
         break;
       } else {
-        // Process thruster and pitch buttons
         if (x >= thrustLeftButton.x && x <= thrustLeftButton.x + thrustLeftButton.width &&
             y >= thrustLeftButton.y && y <= thrustLeftButton.y + thrustLeftButton.height) {
           this.rocket.applyThrust(-1);
@@ -492,7 +498,7 @@ class Game {
         ctx.fillText("CRASHED! 💥", SCREEN_WIDTH / 2 - 50, 50);
       }
       ctx.fillStyle = 'white';
-      ctx.fillText("Press R or tap Restart", SCREEN_WIDTH / 2 - 130, 80);
+      ctx.fillText("Press R, Enter, or tap Restart", SCREEN_WIDTH / 2 - 130, 80);
       
       // Draw the restart button
       ctx.fillStyle = 'gray';
@@ -502,6 +508,11 @@ class Game {
       ctx.fillStyle = 'white';
       ctx.font = '20px Arial';
       ctx.fillText("Restart", restartButton.x + 10, restartButton.y + 28);
+    }
+    
+    // Draw an offscreen arrow if the rocket is not visible
+    if (this.rocket.pos.x < 0 || this.rocket.pos.x > SCREEN_WIDTH || this.rocket.pos.y < 0 || this.rocket.pos.y > SCREEN_HEIGHT) {
+      drawOffscreenArrow(ctx, this.rocket);
     }
   }
   
