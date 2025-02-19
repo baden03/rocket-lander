@@ -1,18 +1,8 @@
-// version 0.0.9
-// Get the canvas and context
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+// version 0.0.10
 
-let SCREEN_WIDTH = canvas.width;
-let SCREEN_HEIGHT = canvas.height;
-const FPS = 60;
-const DT = 1 / FPS;
-const GRAVITY = 60.0;
-const THRUST_POWER = 150.0;
-const SAFE_LANDING_VELOCITY = 50.0;
-const SAFE_LANDING_ANGLE = 20.0;
-
-// Button definitions (positions and sizes)
+// ----------------------
+// UI Button Definitions
+// ----------------------
 const buttonMargin = 20;
 const thrustButtonWidth = 100;
 const thrustButtonHeight = 100;
@@ -20,71 +10,79 @@ const pitchButtonWidth = 60;
 const pitchButtonHeight = 60;
 const buttonGap = 10;
 
-// Fullscreen button
-const fullscreenButton = document.getElementById('fullscreenButton');
-fullscreenButton.addEventListener('click', () => {
-  if (canvas.requestFullscreen) {
-    canvas.requestFullscreen();
-  } else if (canvas.webkitRequestFullscreen) { /* Safari */
-    canvas.webkitRequestFullscreen();
-  } else if (canvas.msRequestFullscreen) { /* IE11 */
-    canvas.msRequestFullscreen();
-  }
-});
+// Define UI button objects with initial dummy values (will be updated on resize)
+const thrustLeftButton = { x: 0, y: 0, width: thrustButtonWidth, height: thrustButtonHeight };
+const thrustRightButton = { x: 0, y: 0, width: thrustButtonWidth, height: thrustButtonHeight };
+const pitchLeftButton = { x: 0, y: 0, width: pitchButtonWidth, height: pitchButtonHeight };
+const pitchRightButton = { x: 0, y: 0, width: pitchButtonWidth, height: pitchButtonHeight };
+const restartButton = { x: 0, y: 0, width: 100, height: 40 };
 
-// Resize canvas when the window is resized
+let game;
+
+// ----------------------
+// Global Variables & Canvas Setup
+// ----------------------
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+let SCREEN_WIDTH = canvas.width;
+let SCREEN_HEIGHT = canvas.height;
+
+const FPS = 60;
+const DT = 1 / FPS;
+const GRAVITY = 60.0;
+const THRUST_POWER = 150.0;
+const SAFE_LANDING_VELOCITY = 50.0;
+const SAFE_LANDING_ANGLE = 20.0;
+
+// ----------------------
+// UI Update Functions
+// ----------------------
+function updateUIButtons() {
+    thrustLeftButton.x = buttonMargin;
+    thrustLeftButton.y = SCREEN_HEIGHT - thrustButtonHeight - buttonMargin;
+
+    thrustRightButton.x = SCREEN_WIDTH - thrustButtonWidth - buttonMargin;
+    thrustRightButton.y = SCREEN_HEIGHT - thrustButtonHeight - buttonMargin;
+
+    pitchLeftButton.x = thrustLeftButton.x + (thrustButtonWidth - pitchButtonWidth) / 2;
+    pitchLeftButton.y = thrustLeftButton.y - pitchButtonHeight - buttonGap;
+
+    pitchRightButton.x = thrustRightButton.x + (thrustButtonWidth - pitchButtonWidth) / 2;
+    pitchRightButton.y = thrustRightButton.y - pitchButtonHeight - buttonGap;
+
+    restartButton.x = SCREEN_WIDTH / 2 - 50;
+    restartButton.y = SCREEN_HEIGHT - 200;
+    restartButton.width = 100;
+    restartButton.height = 40;
+}
+
 function resizeCanvas() {
+    console.log("Resizing canvas");
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    // Update the global dimensions
+    canvas.style.width = window.innerWidth + "px";
+    canvas.style.height = window.innerHeight + "px";
     SCREEN_WIDTH = canvas.width;
     SCREEN_HEIGHT = canvas.height;
+    updateUIButtons();
+
+    // Regenerate terrain if the game is in progress.
+    if (game && !game.rocket.crashed && !game.rocket.landed) {
+        game.terrain = new Terrain();
+    }
 }
 window.addEventListener('resize', resizeCanvas);
-resizeCanvas(); // Call it on load
+resizeCanvas();
 
-// Bottom thruster buttons
-const thrustLeftButton = {
-  x: buttonMargin,
-  y: SCREEN_HEIGHT - thrustButtonHeight - buttonMargin,
-  width: thrustButtonWidth,
-  height: thrustButtonHeight
-};
-const thrustRightButton = {
-  x: SCREEN_WIDTH - thrustButtonWidth - buttonMargin,
-  y: SCREEN_HEIGHT - thrustButtonHeight - buttonMargin,
-  width: thrustButtonWidth,
-  height: thrustButtonHeight
-};
-
-// Pitch buttons directly above the thruster buttons
-const pitchLeftButton = {
-  x: thrustLeftButton.x + (thrustButtonWidth - pitchButtonWidth) / 2,
-  y: thrustLeftButton.y - pitchButtonHeight - buttonGap,
-  width: pitchButtonWidth,
-  height: pitchButtonHeight
-};
-const pitchRightButton = {
-  x: thrustRightButton.x + (thrustButtonWidth - pitchButtonWidth) / 2,
-  y: thrustRightButton.y - pitchButtonHeight - buttonGap,
-  width: pitchButtonWidth,
-  height: pitchButtonHeight
-};
-
-// Restart button (visible when the rocket has crashed or landed)
-const restartButton = {
-  x: SCREEN_WIDTH / 2 - 50,
-  y: 100,
-  width: 100,
-  height: 40
-};
-
-// Utility function for degree-radian conversion
+// ----------------------
+// Utility Functions
+// ----------------------
 function degToRad(degrees) {
   return degrees * (Math.PI / 180);
 }
 
-// Function to draw an offscreen arrow pointing toward the rocket when it's off the canvas.
+// Draw an arrow along the canvas boundary pointing from the center toward the rocket.
 function drawOffscreenArrow(ctx, rocket) {
   const cx = SCREEN_WIDTH / 2;
   const cy = SCREEN_HEIGHT / 2;
@@ -115,7 +113,38 @@ function drawOffscreenArrow(ctx, rocket) {
   ctx.restore();
 }
 
-// --- Particle Class ---
+// Draw the avatar (minimap) of the rocket—a scaled clone inside a box centered on the screen.
+function drawAvatar(ctx, rocket) {
+  const boxWidth = 150;
+  const boxHeight = 150;
+  const boxX = SCREEN_WIDTH / 2 - boxWidth / 2;
+  const boxY = SCREEN_HEIGHT / 2 - boxHeight / 2;
+
+  ctx.save();
+  ctx.strokeStyle = 'white';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+
+  // Draw the scaled clone of the rocket inside the box
+  ctx.translate(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+  ctx.rotate(degToRad(rocket.angle));
+  ctx.strokeStyle = 'cyan';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  const scale = 0.5;
+  const pts = rocket.points.map(pt => ({ x: pt.x * scale, y: pt.y * scale }));
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) {
+    ctx.lineTo(pts[i].x, pts[i].y);
+  }
+  ctx.closePath();
+  ctx.stroke();
+  ctx.restore();
+}
+
+// ----------------------
+// Particle Class
+// ----------------------
 class Particle {
   constructor(x, y, angle) {
     this.pos = { x: x, y: y };
@@ -150,7 +179,9 @@ class Particle {
   }
 }
 
-// --- Rocket Class ---
+// ----------------------
+// Rocket Class
+// ----------------------
 class Rocket {
   constructor(x, y) {
     this.pos = { x: x, y: y };
@@ -160,7 +191,7 @@ class Rocket {
     this.particles = [];
     this.crashed = false;
     this.landed = false;
-    // Rocket shape defined in local coordinates
+    // Define the rocket shape in local coordinates
     this.points = [
       { x: 0, y: -20 },
       { x: 10, y: 10 },
@@ -280,7 +311,9 @@ class Rocket {
   }
 }
 
-// --- Terrain Class ---
+// ----------------------
+// Terrain Class
+// ----------------------
 class Terrain {
   constructor() {
     this.points = [];
@@ -320,52 +353,22 @@ class Terrain {
   }
 }
 
-// --- Avatar Drawing Function ---
-// Draws a clone of the rocket inside a box centered on the screen.
-function drawAvatar(ctx, rocket) {
-  const boxWidth = 150;
-  const boxHeight = 150;
-  const boxX = SCREEN_WIDTH / 2 - boxWidth / 2;
-  const boxY = SCREEN_HEIGHT / 2 - boxHeight / 2;
-  
-  // Draw the box outline
-  ctx.save();
-  ctx.strokeStyle = 'white';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
-  
-  // Draw a scaled clone of the rocket inside the box
-  ctx.translate(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
-  ctx.rotate(degToRad(rocket.angle));
-  ctx.strokeStyle = 'cyan';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  // Scale down the ship for the avatar; use a factor (e.g., 0.5)
-  const scale = 0.5;
-  const pts = rocket.points.map(pt => ({ x: pt.x * scale, y: pt.y * scale }));
-  ctx.moveTo(pts[0].x, pts[0].y);
-  for (let i = 1; i < pts.length; i++) {
-    ctx.lineTo(pts[i].x, pts[i].y);
-  }
-  ctx.closePath();
-  ctx.stroke();
-  ctx.restore();
-}
-
-// --- Game Class ---
+// ----------------------
+// End Message Functionality
+// ----------------------
 class Game {
   constructor() {
     this.reset();
     this.lastTime = 0;
     this.running = true;
     this.keys = {};
+    this.endMessageStartTime = null;
     
-    // Keyboard events with prevention of default scrolling
     window.addEventListener('keydown', (e) => {
       if (["ArrowLeft", "ArrowRight", "ShiftLeft", "ShiftRight"].includes(e.code)) {
         e.preventDefault();
       }
-      if (e.code === "KeyR" && (this.rocket.landed || this.rocket.crashed) ) {
+      if (e.code === "KeyR" && (this.rocket.landed || this.rocket.crashed)) {
         this.reset();
       }
       if (e.code === "Enter" && (this.rocket.landed || this.rocket.crashed)) {
@@ -393,6 +396,7 @@ class Game {
     this.running = true;
     this.lastTime = 0;
     this.activePointers = {};
+    this.endMessageStartTime = null;
   }
   
   updatePointerPosition(e) {
@@ -425,7 +429,6 @@ class Game {
       const x = pos.x;
       const y = pos.y;
       
-      // If rocket is crashed/landed, check the restart button first
       if ((this.rocket.crashed || this.rocket.landed) &&
           x >= restartButton.x && x <= restartButton.x + restartButton.width &&
           y >= restartButton.y && y <= restartButton.y + restartButton.height) {
@@ -492,6 +495,39 @@ class Game {
     }
   }
   
+  displayEndMessage(ctx) {
+    const messages = [
+      "By the way, in case you did not know:",
+      "Left Shift and Right Shift control the rocket's thrust...",
+      "...as do the left/right arrow keys.",
+      "Q and E control the rocket's pitch.",
+      "This is just a prototype build with a super cool 7 year old;",
+      "levels and other features are coming...",
+      "...maybe.",
+      "So show a little kindness, mmkay?",
+      "Forks and pull requests are welcome."
+    ];
+    if (!this.endMessageStartTime) {
+      this.endMessageStartTime = performance.now();
+    }
+    const currentTime = performance.now();
+    const fadeDuration = 2000; // each line fades in over 2 seconds
+    for (let i = 0; i < messages.length; i++) {
+      const lineStart = this.endMessageStartTime + i * fadeDuration;
+      const elapsed = currentTime - lineStart;
+      let alpha = 0;
+      if (elapsed > 0) {
+        alpha = Math.min(1, elapsed / fadeDuration);
+      }
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = 'white';
+      ctx.font = '20px Arial';
+      ctx.fillText(messages[i], SCREEN_WIDTH / 2 - 200, 100 + i * 30);
+      ctx.restore();
+    }
+  }
+  
   update(deltaTime) {
     if (!this.rocket.crashed && !this.rocket.landed) {
       if (this.keys['ArrowLeft'] || this.keys['ShiftLeft']) {
@@ -521,7 +557,7 @@ class Game {
     ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
     this.terrain.draw(ctx);
     this.rocket.draw(ctx);
-  
+    
     // Draw on-screen buttons for thrusters and pitch
     ctx.strokeStyle = 'gray';
     ctx.lineWidth = 2;
@@ -529,14 +565,14 @@ class Game {
     ctx.strokeRect(thrustRightButton.x, thrustRightButton.y, thrustRightButton.width, thrustRightButton.height);
     ctx.strokeRect(pitchLeftButton.x, pitchLeftButton.y, pitchLeftButton.width, pitchLeftButton.height);
     ctx.strokeRect(pitchRightButton.x, pitchRightButton.y, pitchRightButton.width, pitchRightButton.height);
-  
+    
     ctx.fillStyle = 'gray';
     ctx.font = '16px Arial';
     ctx.fillText("Thrust L", thrustLeftButton.x + 10, thrustLeftButton.y + 25);
     ctx.fillText("Thrust R", thrustRightButton.x + 10, thrustRightButton.y + 25);
     ctx.fillText("Pitch L", pitchLeftButton.x + 5, pitchLeftButton.y + 20);
     ctx.fillText("Pitch R", pitchRightButton.x + 5, pitchRightButton.y + 20);
-  
+    
     // Display landing/crash messages and restart prompt
     if (this.rocket.landed || this.rocket.crashed) {
       ctx.font = '24px Arial';
@@ -548,7 +584,7 @@ class Game {
         ctx.fillText("CRASHED! 💥", SCREEN_WIDTH / 2 - 50, 50);
       }
       ctx.fillStyle = 'white';
-      ctx.fillText("Press R, Enter, or tap Restart", SCREEN_WIDTH / 2 - 130, 80);
+      ctx.fillText("Press R, Enter, or tap Restart.", SCREEN_WIDTH / 2 - 150, 80);
       
       // Draw the restart button
       ctx.fillStyle = 'gray';
@@ -557,15 +593,16 @@ class Game {
       ctx.strokeRect(restartButton.x, restartButton.y, restartButton.width, restartButton.height);
       ctx.fillStyle = 'white';
       ctx.font = '20px Arial';
-      ctx.fillText("Restart", restartButton.x + 10, restartButton.y + 28);
-    }
-  
-    // Draw an offscreen arrow if the rocket is not visible
-    if (this.rocket.pos.x < 0 || this.rocket.pos.x > SCREEN_WIDTH || this.rocket.pos.y < 0 || this.rocket.pos.y > SCREEN_HEIGHT) {
-      drawOffscreenArrow(ctx, this.rocket);
+      ctx.fillText("Restart", restartButton.x + 17, restartButton.y + 28);
       
-      // Fade in the minimap (avatar) when the ship is off-screen.
-      // Here, we set globalAlpha to 0.8 (adjust as desired) and draw the avatar.
+      // Display end messages
+      this.displayEndMessage(ctx);
+    }
+    
+    // Draw offscreen arrow and minimap if rocket is off-canvas
+    if (this.rocket.pos.x < 0 || this.rocket.pos.x > SCREEN_WIDTH ||
+        this.rocket.pos.y < 0 || this.rocket.pos.y > SCREEN_HEIGHT) {
+      drawOffscreenArrow(ctx, this.rocket);
       ctx.save();
       ctx.globalAlpha = 0.8;
       drawAvatar(ctx, this.rocket);
@@ -588,6 +625,8 @@ class Game {
   }
 }
 
-// Start the game
-const game = new Game();
+// ----------------------
+// Start the Game
+// ----------------------
+game = new Game();
 game.run();
