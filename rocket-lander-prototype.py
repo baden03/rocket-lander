@@ -8,8 +8,14 @@ import sys
 pygame.init()
 
 # Constants
-SCREEN_WIDTH = 1920
-SCREEN_HEIGHT = 1080
+SCREEN_WIDTH = 1280
+SCREEN_HEIGHT = 720
+"""
+info = pygame.display.Info()
+SCREEN_WIDTH = info.current_w
+SCREEN_HEIGHT = info.current_h
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+"""
 FPS = 60
 DT = 1 / FPS
 
@@ -21,8 +27,8 @@ YELLOW = (255, 255, 0)
 GRAY = (100, 100, 100)
 
 # Physics constants
-GRAVITY = 100.0
-THRUST_POWER = 200.0
+GRAVITY = 60.0
+THRUST_POWER = 150.0
 TORQUE = 200.0
 DRAG = 0.1
 ANGULAR_DRAG = 0.2
@@ -129,7 +135,8 @@ class Rocket:
         """
         # Define a local thrust vector that will generate torque.
         # Here we use the same magnitude as a single bottom engine, but you can adjust if needed.
-        local_thrust = pygame.Vector2(0, -THRUST_POWER * 0.5)
+        # local_thrust = pygame.Vector2(0, -THRUST_POWER * 0.5)
+        local_thrust = pygame.Vector2(0, -THRUST_POWER * 25)
         # Rotate it so it’s in world-space relative to the rocket's current orientation.
         world_thrust = local_thrust.rotate(self.angle)
         
@@ -288,6 +295,44 @@ class Game:
         pygame.display.set_caption("Rocket Lander Challenge")
         self.clock = pygame.time.Clock()
         
+        # Define on-screen button areas (Rect(left, top, width, height))
+        # Thrust buttons on left and right sides
+        self.thrust_button_width = 100
+        self.thrust_button_height = 100
+        self.thrust_gap_from_bottom = 150  # from bottom of screen
+        
+        self.bottom_left_button = pygame.Rect(
+            20,
+            SCREEN_HEIGHT - self.thrust_button_height - 20,
+            self.thrust_button_width,
+            self.thrust_button_height
+        )
+        self.bottom_right_button = pygame.Rect(
+            SCREEN_WIDTH - self.thrust_button_width - 20,
+            SCREEN_HEIGHT - self.thrust_button_height - 20,
+            self.thrust_button_width,
+            self.thrust_button_height
+        )
+        
+        # Pitch buttons are directly on top of the thrust buttons.
+        # We'll center them horizontally relative to the thrust buttons.
+        self.pitch_button_width = 60
+        self.pitch_button_height = 60
+        self.button_gap = 10  # vertical gap between pitch and thrust buttons
+        
+        self.pitch_left_button = pygame.Rect(
+            self.bottom_left_button.x + (self.thrust_button_width - self.pitch_button_width) // 2,
+            self.bottom_left_button.y - self.pitch_button_height - self.button_gap,
+            self.pitch_button_width,
+            self.pitch_button_height
+        )
+        self.pitch_right_button = pygame.Rect(
+            self.bottom_right_button.x + (self.thrust_button_width - self.pitch_button_width) // 2,
+            self.bottom_right_button.y - self.pitch_button_height - self.button_gap,
+            self.pitch_button_width,
+            self.pitch_button_height
+        )
+        
         self.reset_game()
         self.running = True
 
@@ -296,15 +341,36 @@ class Game:
         self.terrain = Terrain()
 
     def handle_events(self):
+        # Process keyboard and mouse/touch events
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_r:
                     self.reset_game()
-                
+
         keys = pygame.key.get_pressed()
         self.rocket.handle_input(keys)
+        
+        # Process touch/mouse input for on-screen buttons
+        if pygame.mouse.get_pressed()[0]:
+            pos = pygame.mouse.get_pos()
+            # Left side thrust button:
+            if self.bottom_left_button.collidepoint(pos):
+                self.rocket.apply_thrust(-1)
+                self.rocket.emit_particles(-1)
+            # Right side thrust button:
+            if self.bottom_right_button.collidepoint(pos):
+                self.rocket.apply_thrust(1)
+                self.rocket.emit_particles(1)
+            # Left side pitch button:
+            if self.pitch_left_button.collidepoint(pos):
+                self.rocket.apply_pitch_thrust(-1)
+                self.rocket.emit_top_particles(-1)
+            # Right side pitch button:
+            if self.pitch_right_button.collidepoint(pos):
+                self.rocket.apply_pitch_thrust(1)
+                self.rocket.emit_top_particles(1)
 
     def check_landing(self):
         if self.rocket.crashed or self.rocket.landed:
@@ -329,7 +395,7 @@ class Game:
                 else:
                     self.rocket.crashed = True
         
-        # Check collision with terrain
+        # Check collision with terrain (if not above landing pad)
         else:
             for i in range(len(self.terrain.points) - 1):
                 p1 = pygame.Vector2(self.terrain.points[i])
@@ -350,7 +416,7 @@ class Game:
         self.terrain.draw(self.screen)
         self.rocket.draw(self.screen)
         
-        # Draw status
+        # Draw status text
         font = pygame.font.Font(None, 36)
         if self.rocket.crashed:
             text = font.render("CRASHED! Press R to reset", True, RED)
@@ -358,6 +424,23 @@ class Game:
         elif self.rocket.landed:
             text = font.render("LANDED! Press R to reset", True, YELLOW)
             self.screen.blit(text, (10, 10))
+        
+        # Draw on-screen buttons for mobile input (for debugging/visual feedback)
+        pygame.draw.rect(self.screen, GRAY, self.bottom_left_button, 2)
+        pygame.draw.rect(self.screen, GRAY, self.bottom_right_button, 2)
+        pygame.draw.rect(self.screen, GRAY, self.pitch_left_button, 2)
+        pygame.draw.rect(self.screen, GRAY, self.pitch_right_button, 2)
+        
+        # Label buttons
+        small_font = pygame.font.Font(None, 24)
+        thrust_text = small_font.render("Thrust", True, GRAY)
+        pitch_text = small_font.render("Pitch", True, GRAY)
+        # Render labels on the thrust buttons
+        self.screen.blit(thrust_text, (self.bottom_left_button.x + 10, self.bottom_left_button.y + 10))
+        self.screen.blit(thrust_text, (self.bottom_right_button.x + 10, self.bottom_right_button.y + 10))
+        # Render labels on the pitch buttons
+        self.screen.blit(pitch_text, (self.pitch_left_button.x + 5, self.pitch_left_button.y + 5))
+        self.screen.blit(pitch_text, (self.pitch_right_button.x + 5, self.pitch_right_button.y + 5))
         
         pygame.display.flip()
 
