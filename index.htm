@@ -15,6 +15,7 @@
         touch-action: none; /* Prevent default touch actions */
         margin: 0;
         padding: 0;
+        overflow: hidden; /* Prevent scrollbars */
     }
 
     canvas {
@@ -26,6 +27,8 @@
         touch-action: none;
         /* Optional: disable long press context menu on some browsers */
         user-select: none;
+        /*width: 100vw;
+        height: 100vh;*/
     }
   </style>
 </head>
@@ -41,8 +44,8 @@
     <button id="thrustRight">🔥<i class="arrow down"></i></button>
   </div>
 -->
-
-  <script src="game.js?v=0.0.2"></script>
+  <button id="fullscreenButton">Go Fullscreen</button>
+  <script src="game.js?v=0.0.7"></script>
 
 </body>
 </html>

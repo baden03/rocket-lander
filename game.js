@@ -1,10 +1,10 @@
-// version 0.0.2
+// version 0.0.7
 // Get the canvas and context
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-const SCREEN_WIDTH = canvas.width;
-const SCREEN_HEIGHT = canvas.height;
+let SCREEN_WIDTH = canvas.width;
+let SCREEN_HEIGHT = canvas.height;
 const FPS = 60;
 const DT = 1 / FPS;
 const GRAVITY = 60.0;
@@ -19,6 +19,27 @@ const thrustButtonHeight = 100;
 const pitchButtonWidth = 60;
 const pitchButtonHeight = 60;
 const buttonGap = 10;
+
+const fullscreenButton = document.getElementById('fullscreenButton');
+fullscreenButton.addEventListener('click', () => {
+  if (canvas.requestFullscreen) {
+    canvas.requestFullscreen();
+  } else if (canvas.webkitRequestFullscreen) { /* Safari */
+    canvas.webkitRequestFullscreen();
+  } else if (canvas.msRequestFullscreen) { /* IE11 */
+    canvas.msRequestFullscreen();
+  }
+});
+
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    // Update the global dimensions
+    SCREEN_WIDTH = canvas.width;
+    SCREEN_HEIGHT = canvas.height;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas(); // Call it on load
 
 // Bottom thruster buttons
 const thrustLeftButton = {
@@ -48,7 +69,7 @@ const pitchRightButton = {
   height: pitchButtonHeight
 };
 
-// Restart button (only visible when rocket has crashed or landed)
+// Restart button (visible when the rocket has crashed or landed)
 const restartButton = {
   x: SCREEN_WIDTH / 2 - 50,
   y: 100,
@@ -70,7 +91,7 @@ class Particle {
       x: Math.cos(angle) * speed,
       y: Math.sin(angle) * speed,
     };
-    // Increased lifetime for better visibility (from 0.5 to 1.0 seconds)
+    // Increased lifetime for better visibility
     this.lifetime = 0.5 + Math.random() * 0.5;
     this.color = 'yellow';
   }
@@ -88,7 +109,6 @@ class Particle {
   
   draw(ctx) {
     ctx.save();
-    // Fade effect based on lifetime remaining
     const alpha = Math.min(this.lifetime / 1.0, 1);
     ctx.fillStyle = `rgba(255, 255, 0, ${alpha})`;
     ctx.beginPath();
@@ -108,8 +128,7 @@ class Rocket {
     this.particles = [];
     this.crashed = false;
     this.landed = false;
-    
-    // Define the rocket shape in local coordinates
+    // Rocket shape defined in local coordinates
     this.points = [
       { x: 0, y: -20 },
       { x: 10, y: 10 },
@@ -117,7 +136,7 @@ class Rocket {
     ];
   }
   
-  // Return transformed rocket points
+  // Get rotated and translated rocket points
   getTransformedPoints() {
     const rad = degToRad(this.angle);
     return this.points.map(pt => {
@@ -129,9 +148,8 @@ class Rocket {
     });
   }
   
-  // Apply thrust from a bottom thruster
+  // Apply thrust from bottom thrusters
   applyThrust(direction) {
-    // direction: -1 for left, +1 for right
     const thrust = THRUST_POWER * 0.5;
     const rad = degToRad(this.angle);
     const localThrust = { x: 0, y: -thrust };
@@ -151,9 +169,8 @@ class Rocket {
     this.angularVel += (torqueEffect / 100.0) * DT;
   }
   
-  // Apply pitch thrust from a top thruster
+  // Apply pitch thrust from top thrusters
   applyPitchThrust(direction) {
-    // direction: -1 for left, +1 for right
     const thrust = THRUST_POWER * 25;
     const rad = degToRad(this.angle);
     const localThrust = { x: 0, y: -thrust };
@@ -167,12 +184,11 @@ class Rocket {
       x: engineOffset.x * Math.cos(rad) - engineOffset.y * Math.sin(rad),
       y: engineOffset.x * Math.sin(rad) + engineOffset.y * Math.cos(rad),
     };
-    
     const torqueEffect = worldOffset.x * worldThrust.y - worldOffset.y * worldThrust.x;
     this.angularVel += (torqueEffect / 200.0) * DT;
   }
   
-  // Emit particles from a bottom thruster
+  // Emit particles from bottom thrusters
   emitParticles(direction) {
     const engineOffset = (direction < 0) ? { x: -10, y: 10 } : { x: 10, y: 10 };
     const rad = degToRad(this.angle);
@@ -188,7 +204,7 @@ class Rocket {
     this.particles.push(new Particle(particlePos.x, particlePos.y, particleAngle));
   }
   
-  // Emit particles from a top thruster
+  // Emit particles from top thrusters
   emitTopParticles(direction) {
     const engineOffset = (direction < 0) ? { x: -5, y: -20 } : { x: 5, y: -20 };
     const rad = degToRad(this.angle);
@@ -206,7 +222,6 @@ class Rocket {
   
   update() {
     if (this.crashed || this.landed) return;
-    
     this.vel.y += GRAVITY * DT;
     this.pos.x += this.vel.x * DT;
     this.pos.y += this.vel.y * DT;
@@ -224,7 +239,6 @@ class Rocket {
   
   draw(ctx) {
     this.particles.forEach(p => p.draw(ctx));
-    
     const pts = this.getTransformedPoints();
     ctx.save();
     ctx.beginPath();
@@ -287,26 +301,31 @@ class Game {
     this.running = true;
     this.keys = {};
     
-    // Keyboard events (prevent default scrolling for arrow/shift keys)
+    // Keyboard events with prevention of default scrolling
     window.addEventListener('keydown', (e) => {
       if (["ArrowLeft", "ArrowRight", "ShiftLeft", "ShiftRight"].includes(e.code)) {
         e.preventDefault();
       }
-      if (e.code === "KeyR") {
+      if (e.code === "KeyR" && (this.rocket.landed || this.rocket.crashed)) {
+        this.reset();
+      }
+      // If Enter is pressed and the game is in a terminal state (landed or crashed), restart
+      if (e.code === "Enter" && (this.rocket.landed || this.rocket.crashed)) {
         this.reset();
       }
       this.keys[e.code] = true;
     });
     window.addEventListener('keyup', (e) => { this.keys[e.code] = false; });
     
-    // Pointer events for on-screen buttons
-    this.pointerDown = false;
-    this.pointerX = 0;
-    this.pointerY = 0;
+    // Use an object to track active pointers by pointerId
+    this.activePointers = {}; // e.g., { pointerId: {x, y}, ... }
     canvas.addEventListener('pointerdown', this.handlePointerDown.bind(this));
     canvas.addEventListener('pointermove', this.handlePointerMove.bind(this));
     canvas.addEventListener('pointerup', this.handlePointerUp.bind(this));
     canvas.addEventListener('pointercancel', this.handlePointerUp.bind(this));
+    
+    // Start processing multi-touch input
+    this.processMultiPointerInput();
   }
   
   reset() {
@@ -315,72 +334,68 @@ class Game {
     this.keys = {};
     this.running = true;
     this.lastTime = 0;
-    this.pointerDown = false;
+    this.activePointers = {};
+  }
+  
+  updatePointerPosition(e) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    };
   }
   
   handlePointerDown(e) {
     e.preventDefault();
-    this.pointerDown = true;
-    this.updatePointerPosition(e);
-    this.processPointerInput();
+    this.activePointers[e.pointerId] = this.updatePointerPosition(e);
   }
   
   handlePointerMove(e) {
-    if (!this.pointerDown) return;
-    this.updatePointerPosition(e);
+    if (this.activePointers[e.pointerId] !== undefined) {
+      this.activePointers[e.pointerId] = this.updatePointerPosition(e);
+    }
   }
   
   handlePointerUp(e) {
     e.preventDefault();
-    this.pointerDown = false;
+    delete this.activePointers[e.pointerId];
   }
   
-  updatePointerPosition(e) {
-    let clientX, clientY;
-    if (e.touches && e.touches.length > 0) {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else {
-      clientX = e.clientX;
-      clientY = e.clientY;
+  // Process all active pointers to support multi-touch
+  processMultiPointerInput() {
+    for (let id in this.activePointers) {
+      const pos = this.activePointers[id];
+      const x = pos.x;
+      const y = pos.y;
+      
+      // If rocket is crashed/landed, check restart button first
+      if ((this.rocket.crashed || this.rocket.landed) &&
+          x >= restartButton.x && x <= restartButton.x + restartButton.width &&
+          y >= restartButton.y && y <= restartButton.y + restartButton.height) {
+        this.reset();
+        break;
+      } else {
+        // Process thruster and pitch buttons
+        if (x >= thrustLeftButton.x && x <= thrustLeftButton.x + thrustLeftButton.width &&
+            y >= thrustLeftButton.y && y <= thrustLeftButton.y + thrustLeftButton.height) {
+          this.rocket.applyThrust(-1);
+          this.rocket.emitParticles(-1);
+        } else if (x >= thrustRightButton.x && x <= thrustRightButton.x + thrustRightButton.width &&
+                   y >= thrustRightButton.y && y <= thrustRightButton.y + thrustRightButton.height) {
+          this.rocket.applyThrust(1);
+          this.rocket.emitParticles(1);
+        } else if (x >= pitchLeftButton.x && x <= pitchLeftButton.x + pitchLeftButton.width &&
+                   y >= pitchLeftButton.y && y <= pitchLeftButton.y + pitchLeftButton.height) {
+          this.rocket.applyPitchThrust(-1);
+          this.rocket.emitTopParticles(-1);
+        } else if (x >= pitchRightButton.x && x <= pitchRightButton.x + pitchRightButton.width &&
+                   y >= pitchRightButton.y && y <= pitchRightButton.y + pitchRightButton.height) {
+          this.rocket.applyPitchThrust(1);
+          this.rocket.emitTopParticles(1);
+        }
+      }
     }
-    const rect = canvas.getBoundingClientRect();
-    this.pointerX = clientX - rect.left;
-    this.pointerY = clientY - rect.top;
-  }
-  
-  processPointerInput() {
-    if (!this.pointerDown) return;
-    const x = this.pointerX;
-    const y = this.pointerY;
-    
-    // If rocket is crashed/landed, check restart button
-    if ((this.rocket.crashed || this.rocket.landed) &&
-        x >= restartButton.x && x <= restartButton.x + restartButton.width &&
-        y >= restartButton.y && y <= restartButton.y + restartButton.height) {
-      this.reset();
-      return;
-    }
-    
-    // Process thruster buttons
-    if (x >= thrustLeftButton.x && x <= thrustLeftButton.x + thrustLeftButton.width &&
-        y >= thrustLeftButton.y && y <= thrustLeftButton.y + thrustLeftButton.height) {
-      this.rocket.applyThrust(-1);
-      this.rocket.emitParticles(-1);
-    } else if (x >= thrustRightButton.x && x <= thrustRightButton.x + thrustRightButton.width &&
-               y >= thrustRightButton.y && y <= thrustRightButton.y + thrustRightButton.height) {
-      this.rocket.applyThrust(1);
-      this.rocket.emitParticles(1);
-    } else if (x >= pitchLeftButton.x && x <= pitchLeftButton.x + pitchLeftButton.width &&
-               y >= pitchLeftButton.y && y <= pitchLeftButton.y + pitchLeftButton.height) {
-      this.rocket.applyPitchThrust(-1);
-      this.rocket.emitTopParticles(-1);
-    } else if (x >= pitchRightButton.x && x <= pitchRightButton.x + pitchRightButton.width &&
-               y >= pitchRightButton.y && y <= pitchRightButton.y + pitchRightButton.height) {
-      this.rocket.applyPitchThrust(1);
-      this.rocket.emitTopParticles(1);
-    }
-    requestAnimationFrame(this.processPointerInput.bind(this));
+    requestAnimationFrame(this.processMultiPointerInput.bind(this));
   }
   
   checkCollision() {
@@ -390,7 +405,6 @@ class Game {
       x: (pts[1].x + pts[2].x) / 2,
       y: (pts[1].y + pts[2].y) / 2
     };
-    
     if (this.terrain.landingPad &&
         bottomCenter.x >= this.terrain.landingPad.start &&
         bottomCenter.x <= this.terrain.landingPad.end) {
