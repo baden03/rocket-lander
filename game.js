@@ -11,6 +11,42 @@ const THRUST_POWER = 150.0;
 const SAFE_LANDING_VELOCITY = 50.0;
 const SAFE_LANDING_ANGLE = 20.0;
 
+// Button definitions (positions and sizes)
+const buttonMargin = 20;
+const thrustButtonWidth = 100;
+const thrustButtonHeight = 100;
+const pitchButtonWidth = 60;
+const pitchButtonHeight = 60;
+const buttonGap = 10;
+
+// Bottom left/right thruster buttons
+const thrustLeftButton = {
+  x: buttonMargin,
+  y: SCREEN_HEIGHT - thrustButtonHeight - buttonMargin,
+  width: thrustButtonWidth,
+  height: thrustButtonHeight
+};
+const thrustRightButton = {
+  x: SCREEN_WIDTH - thrustButtonWidth - buttonMargin,
+  y: SCREEN_HEIGHT - thrustButtonHeight - buttonMargin,
+  width: thrustButtonWidth,
+  height: thrustButtonHeight
+};
+
+// Pitch buttons directly above the thruster buttons
+const pitchLeftButton = {
+  x: thrustLeftButton.x + (thrustButtonWidth - pitchButtonWidth) / 2,
+  y: thrustLeftButton.y - pitchButtonHeight - buttonGap,
+  width: pitchButtonWidth,
+  height: pitchButtonHeight
+};
+const pitchRightButton = {
+  x: thrustRightButton.x + (thrustButtonWidth - pitchButtonWidth) / 2,
+  y: thrustRightButton.y - pitchButtonHeight - buttonGap,
+  width: pitchButtonWidth,
+  height: pitchButtonHeight
+};
+
 // Utility function for degree-radian conversion
 function degToRad(degrees) {
   return degrees * (Math.PI / 180);
@@ -257,7 +293,6 @@ class Game {
     // Setup keyboard events with prevention of default scrolling for arrow/shift keys
     this.keys = {};
     window.addEventListener('keydown', (e) => {
-      // Prevent default for keys used for thrust to avoid scrolling
       if (["ArrowLeft", "ArrowRight", "ShiftLeft", "ShiftRight"].includes(e.code)) {
         e.preventDefault();
       }
@@ -268,6 +303,15 @@ class Game {
       this.keys[e.code] = true;
     });
     window.addEventListener('keyup', (e) => { this.keys[e.code] = false; });
+    
+    // Pointer events for on-screen buttons
+    this.pointerDown = false;
+    this.pointerX = 0;
+    this.pointerY = 0;
+    canvas.addEventListener('pointerdown', this.handlePointerDown.bind(this));
+    canvas.addEventListener('pointermove', this.handlePointerMove.bind(this));
+    canvas.addEventListener('pointerup', this.handlePointerUp.bind(this));
+    canvas.addEventListener('pointercancel', this.handlePointerUp.bind(this));
   }
   
   // Reset the game state
@@ -277,6 +321,71 @@ class Game {
     this.keys = {};
     this.running = true;
     this.lastTime = 0;
+    this.pointerDown = false;
+  }
+  
+  // Handle pointer down event
+  handlePointerDown(e) {
+    e.preventDefault();
+    this.pointerDown = true;
+    this.updatePointerPosition(e);
+    // Immediately process pointer input on down
+    this.processPointerInput();
+  }
+  
+  // Update pointer position on move
+  handlePointerMove(e) {
+    if (!this.pointerDown) return;
+    this.updatePointerPosition(e);
+  }
+  
+  // Handle pointer up event
+  handlePointerUp(e) {
+    e.preventDefault();
+    this.pointerDown = false;
+  }
+  
+  // Update pointer X and Y relative to canvas
+  updatePointerPosition(e) {
+    let clientX, clientY;
+    if (e.touches && e.touches.length > 0) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+    const rect = canvas.getBoundingClientRect();
+    this.pointerX = clientX - rect.left;
+    this.pointerY = clientY - rect.top;
+  }
+  
+  // Process pointer input continuously while pointer is down
+  processPointerInput() {
+    if (!this.pointerDown) return;
+    const x = this.pointerX;
+    const y = this.pointerY;
+    
+    // Check which on-screen button is active and trigger corresponding action
+    if (x >= thrustLeftButton.x && x <= thrustLeftButton.x + thrustLeftButton.width &&
+        y >= thrustLeftButton.y && y <= thrustLeftButton.y + thrustLeftButton.height) {
+      this.rocket.applyThrust(-1);
+      this.rocket.emitParticles(-1);
+    } else if (x >= thrustRightButton.x && x <= thrustRightButton.x + thrustRightButton.width &&
+               y >= thrustRightButton.y && y <= thrustRightButton.y + thrustRightButton.height) {
+      this.rocket.applyThrust(1);
+      this.rocket.emitParticles(1);
+    } else if (x >= pitchLeftButton.x && x <= pitchLeftButton.x + pitchLeftButton.width &&
+               y >= pitchLeftButton.y && y <= pitchLeftButton.y + pitchLeftButton.height) {
+      this.rocket.applyPitchThrust(-1);
+      this.rocket.emitTopParticles(-1);
+    } else if (x >= pitchRightButton.x && x <= pitchRightButton.x + pitchRightButton.width &&
+               y >= pitchRightButton.y && y <= pitchRightButton.y + pitchRightButton.height) {
+      this.rocket.applyPitchThrust(1);
+      this.rocket.emitTopParticles(1);
+    }
+    // Continue processing pointer input in the next animation frame
+    requestAnimationFrame(this.processPointerInput.bind(this));
   }
   
   // Check for collisions with the terrain or landing pad
@@ -327,7 +436,7 @@ class Game {
   update(deltaTime) {
     // Only process input if the rocket is still active
     if (!this.rocket.crashed && !this.rocket.landed) {
-      // Input handling for bottom thrusters (Arrow keys or Shift keys)
+      // Keyboard input for bottom thrusters (Arrow or Shift keys)
       if (this.keys['ArrowLeft'] || this.keys['ShiftLeft']) {
         this.rocket.applyThrust(-1);
         this.rocket.emitParticles(-1);
@@ -336,7 +445,7 @@ class Game {
         this.rocket.applyThrust(1);
         this.rocket.emitParticles(1);
       }
-      // Input handling for pitch thrusters (Q/E keys)
+      // Keyboard input for pitch thrusters (Q/E keys)
       if (this.keys['KeyQ']) {
         this.rocket.applyPitchThrust(-1);
         this.rocket.emitTopParticles(-1);
@@ -358,16 +467,34 @@ class Game {
     this.terrain.draw(ctx);
     this.rocket.draw(ctx);
     
+    // Draw on-screen buttons
+    ctx.strokeStyle = 'gray';
+    ctx.lineWidth = 2;
+    // Thruster buttons
+    ctx.strokeRect(thrustLeftButton.x, thrustLeftButton.y, thrustLeftButton.width, thrustLeftButton.height);
+    ctx.strokeRect(thrustRightButton.x, thrustRightButton.y, thrustRightButton.width, thrustRightButton.height);
+    // Pitch buttons
+    ctx.strokeRect(pitchLeftButton.x, pitchLeftButton.y, pitchLeftButton.width, pitchLeftButton.height);
+    ctx.strokeRect(pitchRightButton.x, pitchRightButton.y, pitchRightButton.width, pitchRightButton.height);
+    
+    // Label the buttons
+    ctx.fillStyle = 'gray';
+    ctx.font = '16px Arial';
+    ctx.fillText("Thrust L", thrustLeftButton.x + 10, thrustLeftButton.y + 25);
+    ctx.fillText("Thrust R", thrustRightButton.x + 10, thrustRightButton.y + 25);
+    ctx.fillText("Pitch L", pitchLeftButton.x + 5, pitchLeftButton.y + 20);
+    ctx.fillText("Pitch R", pitchRightButton.x + 5, pitchRightButton.y + 20);
+    
     // Display landing/crash messages and restart prompt
-    ctx.fillStyle = 'white';
-    ctx.font = '24px Arial';
     if (this.rocket.landed) {
       ctx.fillStyle = 'green';
+      ctx.font = '24px Arial';
       ctx.fillText("LANDED SUCCESSFULLY! 🚀", SCREEN_WIDTH / 2 - 100, 50);
       ctx.fillStyle = 'white';
       ctx.fillText("Press R to restart", SCREEN_WIDTH / 2 - 100, 80);
     } else if (this.rocket.crashed) {
       ctx.fillStyle = 'red';
+      ctx.font = '24px Arial';
       ctx.fillText("CRASHED! 💥", SCREEN_WIDTH / 2 - 50, 50);
       ctx.fillStyle = 'white';
       ctx.fillText("Press R to restart", SCREEN_WIDTH / 2 - 100, 80);

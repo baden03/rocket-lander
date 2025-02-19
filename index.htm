@@ -1,16 +1,71 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Rocket Lander Challenge</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rocket Lander</title>
   <style>
-    body { margin: 0; background: black; }
-    canvas { display: block; margin: 0 auto; background: #000; }
+    body { margin: 0; text-align: center; background: black; color: white; }
+    canvas { display: block; margin: 0 auto; background: black; }
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 10px;
+    }
+    button {
+      font-size: 18px;
+      padding: 10px 20px;
+      background: gray;
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+    button:active {
+      background: darkgray;
+    }
+    .arrow {
+        border: solid white;
+        border-width: 0 4px 4px 0;
+        display: inline-block;
+        padding: 3px;
+    }
+
+    .right {
+        transform: rotate(-45deg);
+        -webkit-transform: rotate(-45deg);
+    }
+
+    .left {
+        transform: rotate(135deg);
+        -webkit-transform: rotate(135deg);
+    }
+
+    .up {
+        transform: rotate(-135deg);
+        -webkit-transform: rotate(-135deg);
+    }
+
+    .down {
+        transform: rotate(45deg);
+        -webkit-transform: rotate(45deg);
+    }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="1280" height="720"></canvas>
+
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  
+<!--
+  <div class="controls">
+    <button id="thrustLeft">🔥<i class="arrow down"></i></button>
+    <button id="pitchLeft"><i class="arrow left"></i>🔥</button>
+    <button id="pitchRight">🔥<i class="arrow right"></i></button>
+    <button id="thrustRight">🔥<i class="arrow down"></i></button>
+  </div>
+-->
+
   <script src="game.js"></script>
+
 </body>
 </html>
