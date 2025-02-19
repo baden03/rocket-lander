@@ -1,3 +1,4 @@
+// version 0.0.2
 // Get the canvas and context
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -19,7 +20,7 @@ const pitchButtonWidth = 60;
 const pitchButtonHeight = 60;
 const buttonGap = 10;
 
-// Bottom left/right thruster buttons
+// Bottom thruster buttons
 const thrustLeftButton = {
   x: buttonMargin,
   y: SCREEN_HEIGHT - thrustButtonHeight - buttonMargin,
@@ -45,6 +46,14 @@ const pitchRightButton = {
   y: thrustRightButton.y - pitchButtonHeight - buttonGap,
   width: pitchButtonWidth,
   height: pitchButtonHeight
+};
+
+// Restart button (only visible when rocket has crashed or landed)
+const restartButton = {
+  x: SCREEN_WIDTH / 2 - 50,
+  y: 100,
+  width: 100,
+  height: 40
 };
 
 // Utility function for degree-radian conversion
@@ -83,7 +92,7 @@ class Particle {
     const alpha = Math.min(this.lifetime / 1.0, 1);
     ctx.fillStyle = `rgba(255, 255, 0, ${alpha})`;
     ctx.beginPath();
-    ctx.arc(this.pos.x, this.pos.y, 3, 0, 2 * Math.PI); // radius 3 for better visibility
+    ctx.arc(this.pos.x, this.pos.y, 3, 0, 2 * Math.PI); // radius 3 for visibility
     ctx.fill();
     ctx.restore();
   }
@@ -108,7 +117,7 @@ class Rocket {
     ];
   }
   
-  // Return the transformed (rotated and translated) rocket points
+  // Return transformed rocket points
   getTransformedPoints() {
     const rad = degToRad(this.angle);
     return this.points.map(pt => {
@@ -120,14 +129,12 @@ class Rocket {
     });
   }
   
-  // Apply thrust from one of the bottom thrusters
+  // Apply thrust from a bottom thruster
   applyThrust(direction) {
     // direction: -1 for left, +1 for right
     const thrust = THRUST_POWER * 0.5;
     const rad = degToRad(this.angle);
-    // Local thrust vector (pointing up)
     const localThrust = { x: 0, y: -thrust };
-    // Rotate thrust vector by current angle
     const worldThrust = {
       x: localThrust.x * Math.cos(rad) - localThrust.y * Math.sin(rad),
       y: localThrust.x * Math.sin(rad) + localThrust.y * Math.cos(rad),
@@ -135,7 +142,6 @@ class Rocket {
     this.vel.x += worldThrust.x * DT;
     this.vel.y += worldThrust.y * DT;
     
-    // Apply torque based on engine offset
     const engineOffset = (direction < 0) ? { x: -10, y: 10 } : { x: 10, y: 10 };
     const worldOffset = {
       x: engineOffset.x * Math.cos(rad) - engineOffset.y * Math.sin(rad),
@@ -145,10 +151,10 @@ class Rocket {
     this.angularVel += (torqueEffect / 100.0) * DT;
   }
   
-  // Apply pitch thrust from the top thrusters
+  // Apply pitch thrust from a top thruster
   applyPitchThrust(direction) {
     // direction: -1 for left, +1 for right
-    const thrust = THRUST_POWER * 25; // Adjust multiplier as needed
+    const thrust = THRUST_POWER * 25;
     const rad = degToRad(this.angle);
     const localThrust = { x: 0, y: -thrust };
     const worldThrust = {
@@ -166,9 +172,8 @@ class Rocket {
     this.angularVel += (torqueEffect / 200.0) * DT;
   }
   
-  // Emit particles from the bottom thrusters
+  // Emit particles from a bottom thruster
   emitParticles(direction) {
-    // direction: -1 for left thruster, +1 for right thruster
     const engineOffset = (direction < 0) ? { x: -10, y: 10 } : { x: 10, y: 10 };
     const rad = degToRad(this.angle);
     const worldOffset = {
@@ -179,14 +184,12 @@ class Rocket {
       x: this.pos.x + worldOffset.x,
       y: this.pos.y + worldOffset.y
     };
-    // Emit particles in the opposite direction of thrust, adding some randomness
     const particleAngle = degToRad(this.angle) + Math.PI + (Math.random() * 0.4 - 0.2);
     this.particles.push(new Particle(particlePos.x, particlePos.y, particleAngle));
   }
   
-  // Emit particles from the top (pitch) thrusters
+  // Emit particles from a top thruster
   emitTopParticles(direction) {
-    // direction: -1 for left pitch thruster, +1 for right pitch thruster
     const engineOffset = (direction < 0) ? { x: -5, y: -20 } : { x: 5, y: -20 };
     const rad = degToRad(this.angle);
     const worldOffset = {
@@ -204,20 +207,15 @@ class Rocket {
   update() {
     if (this.crashed || this.landed) return;
     
-    // Apply gravity
     this.vel.y += GRAVITY * DT;
-    
-    // Update position and angle
     this.pos.x += this.vel.x * DT;
     this.pos.y += this.vel.y * DT;
     this.angle += this.angularVel * DT;
     
-    // Apply simple drag
     this.vel.x *= (1 - 0.1 * DT);
     this.vel.y *= (1 - 0.1 * DT);
     this.angularVel *= (1 - 0.2 * DT);
     
-    // Update and filter out dead particles
     this.particles = this.particles.filter(p => {
       p.update();
       return p.isAlive();
@@ -225,10 +223,8 @@ class Rocket {
   }
   
   draw(ctx) {
-    // Draw particles
     this.particles.forEach(p => p.draw(ctx));
     
-    // Draw rocket shape
     const pts = this.getTransformedPoints();
     ctx.save();
     ctx.beginPath();
@@ -289,14 +285,13 @@ class Game {
     this.reset();
     this.lastTime = 0;
     this.running = true;
-    
-    // Setup keyboard events with prevention of default scrolling for arrow/shift keys
     this.keys = {};
+    
+    // Keyboard events (prevent default scrolling for arrow/shift keys)
     window.addEventListener('keydown', (e) => {
       if (["ArrowLeft", "ArrowRight", "ShiftLeft", "ShiftRight"].includes(e.code)) {
         e.preventDefault();
       }
-      // Restart game if R is pressed
       if (e.code === "KeyR") {
         this.reset();
       }
@@ -314,7 +309,6 @@ class Game {
     canvas.addEventListener('pointercancel', this.handlePointerUp.bind(this));
   }
   
-  // Reset the game state
   reset() {
     this.rocket = new Rocket(SCREEN_WIDTH / 2, 100);
     this.terrain = new Terrain();
@@ -324,28 +318,23 @@ class Game {
     this.pointerDown = false;
   }
   
-  // Handle pointer down event
   handlePointerDown(e) {
     e.preventDefault();
     this.pointerDown = true;
     this.updatePointerPosition(e);
-    // Immediately process pointer input on down
     this.processPointerInput();
   }
   
-  // Update pointer position on move
   handlePointerMove(e) {
     if (!this.pointerDown) return;
     this.updatePointerPosition(e);
   }
   
-  // Handle pointer up event
   handlePointerUp(e) {
     e.preventDefault();
     this.pointerDown = false;
   }
   
-  // Update pointer X and Y relative to canvas
   updatePointerPosition(e) {
     let clientX, clientY;
     if (e.touches && e.touches.length > 0) {
@@ -360,13 +349,20 @@ class Game {
     this.pointerY = clientY - rect.top;
   }
   
-  // Process pointer input continuously while pointer is down
   processPointerInput() {
     if (!this.pointerDown) return;
     const x = this.pointerX;
     const y = this.pointerY;
     
-    // Check which on-screen button is active and trigger corresponding action
+    // If rocket is crashed/landed, check restart button
+    if ((this.rocket.crashed || this.rocket.landed) &&
+        x >= restartButton.x && x <= restartButton.x + restartButton.width &&
+        y >= restartButton.y && y <= restartButton.y + restartButton.height) {
+      this.reset();
+      return;
+    }
+    
+    // Process thruster buttons
     if (x >= thrustLeftButton.x && x <= thrustLeftButton.x + thrustLeftButton.width &&
         y >= thrustLeftButton.y && y <= thrustLeftButton.y + thrustLeftButton.height) {
       this.rocket.applyThrust(-1);
@@ -384,28 +380,22 @@ class Game {
       this.rocket.applyPitchThrust(1);
       this.rocket.emitTopParticles(1);
     }
-    // Continue processing pointer input in the next animation frame
     requestAnimationFrame(this.processPointerInput.bind(this));
   }
   
-  // Check for collisions with the terrain or landing pad
   checkCollision() {
     if (this.rocket.crashed || this.rocket.landed) return;
-
-    // Get bottom center of the rocket (average of the two lower points)
     const pts = this.rocket.getTransformedPoints();
     const bottomCenter = {
       x: (pts[1].x + pts[2].x) / 2,
       y: (pts[1].y + pts[2].y) / 2
     };
-
-    // If over the landing pad area
+    
     if (this.terrain.landingPad &&
         bottomCenter.x >= this.terrain.landingPad.start &&
         bottomCenter.x <= this.terrain.landingPad.end) {
       const padY = SCREEN_HEIGHT * 0.7;
       if (Math.abs(bottomCenter.y - padY) < 5) {
-        // Check safe landing conditions
         if (Math.abs(this.rocket.vel.y) < SAFE_LANDING_VELOCITY &&
             Math.abs(this.rocket.vel.x) < SAFE_LANDING_VELOCITY &&
             Math.abs(this.rocket.angle) < SAFE_LANDING_ANGLE) {
@@ -417,7 +407,6 @@ class Game {
         }
       }
     } else {
-      // Check collision with rough terrain
       for (let i = 0; i < this.terrain.points.length - 1; i++) {
         let p1 = this.terrain.points[i];
         let p2 = this.terrain.points[i + 1];
@@ -434,9 +423,7 @@ class Game {
   }
   
   update(deltaTime) {
-    // Only process input if the rocket is still active
     if (!this.rocket.crashed && !this.rocket.landed) {
-      // Keyboard input for bottom thrusters (Arrow or Shift keys)
       if (this.keys['ArrowLeft'] || this.keys['ShiftLeft']) {
         this.rocket.applyThrust(-1);
         this.rocket.emitParticles(-1);
@@ -445,7 +432,6 @@ class Game {
         this.rocket.applyThrust(1);
         this.rocket.emitParticles(1);
       }
-      // Keyboard input for pitch thrusters (Q/E keys)
       if (this.keys['KeyQ']) {
         this.rocket.applyPitchThrust(-1);
         this.rocket.emitTopParticles(-1);
@@ -454,7 +440,6 @@ class Game {
         this.rocket.applyPitchThrust(1);
         this.rocket.emitTopParticles(1);
       }
-      
       this.rocket.update();
       this.checkCollision();
     }
@@ -467,17 +452,14 @@ class Game {
     this.terrain.draw(ctx);
     this.rocket.draw(ctx);
     
-    // Draw on-screen buttons
+    // Draw on-screen buttons for thrusters and pitch
     ctx.strokeStyle = 'gray';
     ctx.lineWidth = 2;
-    // Thruster buttons
     ctx.strokeRect(thrustLeftButton.x, thrustLeftButton.y, thrustLeftButton.width, thrustLeftButton.height);
     ctx.strokeRect(thrustRightButton.x, thrustRightButton.y, thrustRightButton.width, thrustRightButton.height);
-    // Pitch buttons
     ctx.strokeRect(pitchLeftButton.x, pitchLeftButton.y, pitchLeftButton.width, pitchLeftButton.height);
     ctx.strokeRect(pitchRightButton.x, pitchRightButton.y, pitchRightButton.width, pitchRightButton.height);
     
-    // Label the buttons
     ctx.fillStyle = 'gray';
     ctx.font = '16px Arial';
     ctx.fillText("Thrust L", thrustLeftButton.x + 10, thrustLeftButton.y + 25);
@@ -486,28 +468,34 @@ class Game {
     ctx.fillText("Pitch R", pitchRightButton.x + 5, pitchRightButton.y + 20);
     
     // Display landing/crash messages and restart prompt
-    if (this.rocket.landed) {
-      ctx.fillStyle = 'green';
+    if (this.rocket.landed || this.rocket.crashed) {
       ctx.font = '24px Arial';
-      ctx.fillText("LANDED SUCCESSFULLY! 🚀", SCREEN_WIDTH / 2 - 100, 50);
+      if (this.rocket.landed) {
+        ctx.fillStyle = 'green';
+        ctx.fillText("LANDED SUCCESSFULLY! 🚀", SCREEN_WIDTH / 2 - 100, 50);
+      } else if (this.rocket.crashed) {
+        ctx.fillStyle = 'red';
+        ctx.fillText("CRASHED! 💥", SCREEN_WIDTH / 2 - 50, 50);
+      }
       ctx.fillStyle = 'white';
-      ctx.fillText("Press R to restart", SCREEN_WIDTH / 2 - 100, 80);
-    } else if (this.rocket.crashed) {
-      ctx.fillStyle = 'red';
-      ctx.font = '24px Arial';
-      ctx.fillText("CRASHED! 💥", SCREEN_WIDTH / 2 - 50, 50);
+      ctx.fillText("Press R or tap Restart", SCREEN_WIDTH / 2 - 130, 80);
+      
+      // Draw the restart button
+      ctx.fillStyle = 'gray';
+      ctx.fillRect(restartButton.x, restartButton.y, restartButton.width, restartButton.height);
+      ctx.strokeStyle = 'white';
+      ctx.strokeRect(restartButton.x, restartButton.y, restartButton.width, restartButton.height);
       ctx.fillStyle = 'white';
-      ctx.fillText("Press R to restart", SCREEN_WIDTH / 2 - 100, 80);
+      ctx.font = '20px Arial';
+      ctx.fillText("Restart", restartButton.x + 10, restartButton.y + 28);
     }
   }
   
   loop(timestamp) {
     const deltaTime = (timestamp - this.lastTime) / 1000;
     this.lastTime = timestamp;
-    
     this.update(deltaTime);
     this.render();
-    
     if (this.running) {
       requestAnimationFrame(this.loop.bind(this));
     }
