@@ -113,6 +113,40 @@ function drawOffscreenArrow(ctx, rocket) {
   ctx.restore();
 }
 
+// Helper function: Draw distance indicator in the minimap area
+function drawDistanceIndicator(ctx, rocket) {
+  // Clamp the rocket's x and y to the canvas boundaries.
+  const clampedX = Math.max(0, Math.min(rocket.pos.x, SCREEN_WIDTH));
+  const clampedY = Math.max(0, Math.min(rocket.pos.y, SCREEN_HEIGHT));
+
+  // Compute the differences.
+  const dx = rocket.pos.x - clampedX;
+  const dy = rocket.pos.y - clampedY;
+  // Euclidean distance from rocket to the nearest border.
+  const distancePx = Math.sqrt(dx * dx + dy * dy);
+  
+  // Convert pixels to meters (assuming 2 px = 1 meter).
+  const distanceMeters = distancePx / 2;
+
+  // Format distance: if more than 1000 m, also display kilometers
+  let distanceText = "";
+  if (distanceMeters >= 1000) {
+    const distanceKm = (distanceMeters / 1000).toFixed(2);
+    distanceText = `${distanceKm} km`;
+  } else {
+    distanceText = `${distanceMeters.toFixed(0)} m`;
+  }
+
+  // Draw the distance text near the minimap (for example, below it)
+  // You can adjust the x,y positions as needed.
+  ctx.save();
+  ctx.fillStyle = 'white';
+  ctx.font = '16px Arial';
+  // Draw the text just below the avatar box
+  ctx.fillText("Distance: " + distanceText, SCREEN_WIDTH / 2 - 70, SCREEN_HEIGHT / 2 + 90);
+  ctx.restore();
+}
+
 // Draw the avatar (minimap) of the rocket—a scaled clone inside a box centered on the screen.
 function drawAvatar(ctx, rocket) {
   const boxWidth = 150;
@@ -595,11 +629,11 @@ class Game {
       ctx.font = '20px Arial';
       ctx.fillText("Restart", restartButton.x + 17, restartButton.y + 28);
       
-      // Display end messages
+      // Display end messages (fading in one line at a time)
       this.displayEndMessage(ctx);
     }
     
-    // Draw offscreen arrow and minimap if rocket is off-canvas
+    // If rocket is off canvas, draw offscreen arrow, minimap, and distance indicator.
     if (this.rocket.pos.x < 0 || this.rocket.pos.x > SCREEN_WIDTH ||
         this.rocket.pos.y < 0 || this.rocket.pos.y > SCREEN_HEIGHT) {
       drawOffscreenArrow(ctx, this.rocket);
@@ -607,6 +641,8 @@ class Game {
       ctx.globalAlpha = 0.8;
       drawAvatar(ctx, this.rocket);
       ctx.restore();
+      // Draw the distance indicator below the minimap.
+      drawDistanceIndicator(ctx, this.rocket);
     }
   }
   
