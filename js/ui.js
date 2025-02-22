@@ -79,60 +79,64 @@ function isPitchRightActive(game) {
 export function drawUI(ctx, game) {
   const SCREEN_WIDTH = window.SCREEN_WIDTH;
   const SCREEN_HEIGHT = window.SCREEN_HEIGHT;
-  const uiHeight = SCREEN_HEIGHT * 0.2;  // 20% of screen height
-
-  // Draw UI background area (fixed at the bottom)
+  const uiHeight = SCREEN_HEIGHT * 0.2; // UI occupies the bottom 20% of the screen
+  
+  // Draw UI background area
   ctx.save();
   ctx.fillStyle = "#222";
   ctx.fillRect(0, SCREEN_HEIGHT - uiHeight, SCREEN_WIDTH, uiHeight);
-  // Draw border around UI area for debugging
   ctx.strokeStyle = "#777";
   ctx.lineWidth = 2;
   ctx.strokeRect(0, SCREEN_HEIGHT - uiHeight, SCREEN_WIDTH, uiHeight);
   ctx.restore();
 
-  // Draw the thruster/pitch buttons with a color depending on whether they're active.
+  // Draw thruster and pitch buttons
   ctx.save();
-  ctx.fillStyle = isThrustLeftActive(game) ? "yellow" : "#777";
+  ctx.fillStyle = isThrustLeftActive(game) ? "#FFA200" : "#777";
   ctx.fillRect(thrustLeftButton.x, thrustLeftButton.y, thrustLeftButton.width, thrustLeftButton.height);
-  
-  ctx.fillStyle = isThrustRightActive(game) ? "yellow" : "#777";
+
+  ctx.fillStyle = isThrustRightActive(game) ? "#FFA200" : "#777";
   ctx.fillRect(thrustRightButton.x, thrustRightButton.y, thrustRightButton.width, thrustRightButton.height);
-  
-  ctx.fillStyle = isPitchLeftActive(game) ? "yellow" : "#777";
+
+  ctx.fillStyle = isPitchLeftActive(game) ? "#FFA200" : "#777";
   ctx.fillRect(pitchLeftButton.x, pitchLeftButton.y, pitchLeftButton.width, pitchLeftButton.height);
-  
-  ctx.fillStyle = isPitchRightActive(game) ? "yellow" : "#777";
+
+  ctx.fillStyle = isPitchRightActive(game) ? "#FFA200" : "#777";
   ctx.fillRect(pitchRightButton.x, pitchRightButton.y, pitchRightButton.width, pitchRightButton.height);
   ctx.restore();
 
-  // Get landing info from game.rocket
+  // Get telemetry values from the rocket
   const verticalSpeed = game.rocket.vel.y;
   const horizontalDrift = game.rocket.vel.x;
   const tiltAngle = game.rocket.angle;
 
-  // Define safe thresholds (could be imported constants)
+  // Define safe thresholds
   const safeVerticalSpeed = 50;
   const safeHorizontalDrift = 50;
   const safeTilt = 20;
 
+  // Determine colors based on safe thresholds
   const vsColor = Math.abs(verticalSpeed) <= safeVerticalSpeed ? "green" : "red";
   const hdColor = Math.abs(horizontalDrift) <= safeHorizontalDrift ? "green" : "red";
   const tiltColor = Math.abs(tiltAngle) <= safeTilt ? "green" : "red";
 
-  const startY = SCREEN_HEIGHT - uiHeight + 30;
+  // Center the telemetry text within the bottom UI area
   ctx.save();
   ctx.font = "18px Helvetica";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const centerX = SCREEN_WIDTH / 2;
+  const centerY = SCREEN_HEIGHT - uiHeight / 2;
+  const lineSpacing = 25; // spacing between lines
 
   ctx.fillStyle = vsColor;
-  ctx.fillText(`Vertical Speed: ${verticalSpeed.toFixed(1)} m/s`, 20, startY);
-
+  ctx.fillText(`Vertical Speed: ${verticalSpeed.toFixed(1)} m/s`, centerX, centerY - lineSpacing);
+  
   ctx.fillStyle = hdColor;
-  ctx.fillText(`Horizontal Drift: ${horizontalDrift.toFixed(1)} m/s`, 20, startY + 25);
-
+  ctx.fillText(`Horizontal Drift: ${horizontalDrift.toFixed(1)} m/s`, centerX, centerY);
+  
   ctx.fillStyle = tiltColor;
-  ctx.fillText(`Tilt Angle: ${tiltAngle.toFixed(1)}°`, 20, startY + 50);
-
+  ctx.fillText(`Tilt Angle: ${tiltAngle.toFixed(1)}°`, centerX, centerY + lineSpacing);
   ctx.restore();
 }
 
