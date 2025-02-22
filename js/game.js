@@ -2,20 +2,23 @@
 // version 0.0.1
 
 import { drawUI, updateUIButtons, thrustLeftButton, thrustRightButton, pitchLeftButton, pitchRightButton, restartButton, drawTargetArrow, getBaseSurfaceY } from "./ui.js";
-import { Terrain } from "./terrain.js";
+import { Terrain, TOTAL_TERRAIN_LENGTH } from "./terrain.js";
 import { Rocket } from "./ship.js";
 
 export class Game {
   constructor(canvas) {
-    this.canvas = canvas; // store canvas reference
+    this.canvas = canvas;
     this.ctx = this.canvas.getContext("2d");
     this.reset();
     this.lastTime = 0;
     this.running = true;
     this.keys = {};
+    this.activePointers = {};
     this.endMessageStartTime = null;
+    // Camera horizontal offset for scrolling mode
+    this.cameraOffsetX = 0;
 
-    // Keyboard events (prevent default scrolling for arrow/shift keys)
+    // Keyboard events
     window.addEventListener("keydown", (e) => {
       if (["ArrowLeft", "ArrowRight", "ShiftLeft", "ShiftRight"].includes(e.code)) {
         e.preventDefault();
@@ -29,18 +32,17 @@ export class Game {
       this.keys[e.code] = false;
     });
 
-    // Multi-touch: track active pointers by pointerId
-    this.activePointers = {};
+    // Multi-touch events on the canvas
     this.canvas.addEventListener("pointerdown", this.handlePointerDown.bind(this));
     this.canvas.addEventListener("pointermove", this.handlePointerMove.bind(this));
     this.canvas.addEventListener("pointerup", this.handlePointerUp.bind(this));
     this.canvas.addEventListener("pointercancel", this.handlePointerUp.bind(this));
 
-    // Start processing multi-touch input
     this.processMultiPointerInput();
   }
 
   reset() {
+    // Create new instances of Rocket and Terrain.
     this.rocket = new Rocket(window.SCREEN_WIDTH / 2, 100);
     this.terrain = new Terrain();
     this.keys = {};
@@ -48,13 +50,15 @@ export class Game {
     this.lastTime = 0;
     this.activePointers = {};
     this.endMessageStartTime = null;
+    this.cameraOffsetX = 0;
+    this.absoluteCameraOffsetX = 0;
   }
 
   updatePointerPosition(e) {
     const rect = this.canvas.getBoundingClientRect();
     return {
       x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
+      y: e.clientY - rect.top
     };
   }
 
@@ -79,7 +83,6 @@ export class Game {
       const pos = this.activePointers[id];
       const x = pos.x;
       const y = pos.y;
-
       if ((this.rocket.crashed || this.rocket.landed) &&
           x >= restartButton.x && x <= restartButton.x + restartButton.width &&
           y >= restartButton.y && y <= restartButton.y + restartButton.height) {
@@ -108,16 +111,41 @@ export class Game {
     requestAnimationFrame(this.processMultiPointerInput.bind(this));
   }
 
+  // Update camera offset when the rocket nears the left/right boundaries (20% from the edge)
+  updateCamera() {
+    const SCREEN_WIDTH = window.SCREEN_WIDTH;
+    const leftThreshold = 0.2 * SCREEN_WIDTH;
+    const rightThreshold = 0.8 * SCREEN_WIDTH;
+
+    let rocketScreenX = this.rocket.pos.x - this.absoluteCameraOffsetX;
+    
+    if (rocketScreenX < leftThreshold) {
+      this.absoluteCameraOffsetX -= (leftThreshold - rocketScreenX) * 0.1;
+    } else if (rocketScreenX > rightThreshold) {
+      this.absoluteCameraOffsetX += (rocketScreenX - rightThreshold) * 0.1;
+    }
+    
+    // Compute effective offset for rendering
+    this.cameraOffsetX = ((this.absoluteCameraOffsetX % TOTAL_TERRAIN_LENGTH) + TOTAL_TERRAIN_LENGTH) % TOTAL_TERRAIN_LENGTH;
+    // console.log("Effective cameraOffsetX: ", this.cameraOffsetX);
+  }
+
   checkCollision() {
     if (this.rocket.crashed || this.rocket.landed) return;
+  
     const pts = this.rocket.getTransformedPoints();
     const bottomCenter = {
       x: (pts[1].x + pts[2].x) / 2,
-      y: (pts[1].y + pts[2].y) / 2,
+      y: (pts[1].y + pts[2].y) / 2
     };
+  
+    // Wrap the rocket's x coordinate so it falls within [0, TOTAL_TERRAIN_LENGTH)
+    let modShipX = ((this.rocket.pos.x % TOTAL_TERRAIN_LENGTH) + TOTAL_TERRAIN_LENGTH) % TOTAL_TERRAIN_LENGTH;
+  
+    // First, check if the ship is over the landing pad.
     if (this.terrain.landingPad &&
-        bottomCenter.x >= this.terrain.landingPad.start &&
-        bottomCenter.x <= this.terrain.landingPad.end) {
+        modShipX >= this.terrain.landingPad.start &&
+        modShipX <= this.terrain.landingPad.end) {
       const padY = getBaseSurfaceY();
       if (Math.abs(bottomCenter.y - padY) < 5) {
         if (Math.abs(this.rocket.vel.y) < 50 &&
@@ -129,18 +157,24 @@ export class Game {
           this.rocket.crashed = true;
           console.log("Crash landing!");
         }
+        return;
       }
-    } else {
-      for (let i = 0; i < this.terrain.points.length - 1; i++) {
-        let p1 = this.terrain.points[i];
-        let p2 = this.terrain.points[i + 1];
-        if (bottomCenter.x >= p1.x && bottomCenter.x <= p2.x) {
-          let groundY = p1.y + ((p2.y - p1.y) / (p2.x - p1.x)) * (bottomCenter.x - p1.x);
-          if (bottomCenter.y >= groundY) {
-            this.rocket.crashed = true;
-            console.log("Crashed on rough terrain!");
-            break;
-          }
+    }
+  
+    // Otherwise, check collision with the terrain segments.
+    // We iterate over the terrain points (which are generated in increasing order from 0 to TOTAL_TERRAIN_LENGTH)
+    for (let i = 0; i < this.terrain.points.length - 1; i++) {
+      const p1 = this.terrain.points[i];
+      const p2 = this.terrain.points[i + 1];
+      // Check if the wrapped ship x is between these two terrain points.
+      if (modShipX >= p1.x && modShipX <= p2.x) {
+        // Interpolate y value at modShipX along the terrain segment
+        const t = (modShipX - p1.x) / (p2.x - p1.x);
+        const groundY = p1.y + t * (p2.y - p1.y);
+        if (bottomCenter.y >= groundY) {
+          this.rocket.crashed = true;
+          console.log("Crashed on rough terrain!");
+          break;
         }
       }
     }
@@ -162,7 +196,7 @@ export class Game {
       this.endMessageStartTime = performance.now();
     }
     const currentTime = performance.now();
-    const fadeDuration = 2000; // 2 seconds per line
+    const fadeDuration = 2000;
     for (let i = 0; i < messages.length; i++) {
       const lineStart = this.endMessageStartTime + i * fadeDuration;
       const elapsed = currentTime - lineStart;
@@ -180,6 +214,7 @@ export class Game {
   }
 
   update(deltaTime) {
+    this.updateCamera();
     if (!this.rocket.crashed && !this.rocket.landed) {
       if (this.keys["ArrowLeft"] || this.keys["ShiftLeft"]) {
         this.rocket.applyThrust(-1);
@@ -205,18 +240,32 @@ export class Game {
   render() {
     const SCREEN_WIDTH = window.SCREEN_WIDTH;
     const SCREEN_HEIGHT = window.SCREEN_HEIGHT;
+    // Clear the entire canvas.
     this.ctx.clearRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
     this.ctx.fillStyle = "black";
     this.ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-
-    // Draw terrain and rocket (gameplay area)
-    this.terrain.draw(this.ctx);
-    this.rocket.draw(this.ctx);
-
-    // Draw UI elements from ui.js
+  
+    // Draw the terrain using the effective camera offset.
+    this.terrain.draw(this.ctx, this.cameraOffsetX);
+  
+    // Compute the effective x position for the rocket.
+    // This maps the rocket’s global x (offset by the continuous camera offset)
+    // into the [0, TOTAL_TERRAIN_LENGTH) range.
+    const effectiveShipX =
+      ((this.rocket.pos.x - this.absoluteCameraOffsetX) % TOTAL_TERRAIN_LENGTH +
+        TOTAL_TERRAIN_LENGTH) %
+      TOTAL_TERRAIN_LENGTH;
+  
+    // Draw the rocket at its effective x position.
+    // Here we assume that drawAt handles positioning correctly (centered on x, for example).
+    this.ctx.save();
+    this.rocket.drawAt(this.ctx, effectiveShipX, this.rocket.pos.y);
+    this.ctx.restore();
+  
+    // Draw UI elements (which remain in fixed screen coordinates).
     drawUI(this.ctx, this);
-
-    // If game over, display end messages and restart button
+  
+    // If the game is over, display messages and a restart button.
     if (this.rocket.landed || this.rocket.crashed) {
       this.ctx.font = "24px Arial";
       if (this.rocket.landed) {
@@ -228,21 +277,32 @@ export class Game {
       }
       this.ctx.fillStyle = "white";
       this.ctx.fillText("Press R, Enter, or tap Restart.", SCREEN_WIDTH / 2 - 150, 80);
-
-      // Draw the restart button
+  
+      // Draw the restart button.
       this.ctx.fillStyle = "gray";
-      this.ctx.fillRect(restartButton.x, restartButton.y, restartButton.width, restartButton.height);
+      this.ctx.fillRect(
+        restartButton.x,
+        restartButton.y,
+        restartButton.width,
+        restartButton.height
+      );
       this.ctx.strokeStyle = "white";
-      this.ctx.strokeRect(restartButton.x, restartButton.y, restartButton.width, restartButton.height);
+      this.ctx.strokeRect(
+        restartButton.x,
+        restartButton.y,
+        restartButton.width,
+        restartButton.height
+      );
       this.ctx.fillStyle = "white";
       this.ctx.font = "20px Arial";
-      this.ctx.fillText("Restart", restartButton.x + 17, restartButton.y + 28);
-
-      // Display end messages
-      this.displayEndMessage(this.ctx);
+      this.ctx.fillText(
+        "Restart",
+        restartButton.x + 17,
+        restartButton.y + 28
+      );
     }
-
-    // In scroll mode, always draw a target arrow pointing to the landing pad.
+  
+    // Always draw a target arrow pointing to the landing pad.
     if (this.terrain.landingPad) {
       drawTargetArrow(this.ctx, this.terrain.landingPad);
     }
