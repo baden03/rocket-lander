@@ -4,7 +4,6 @@
 import { resizeCanvas } from "./utils.js";
 import { Game } from "./game.js";
 
-// Attach global SCREEN_WIDTH and SCREEN_HEIGHT variables to the window.
 window.SCREEN_WIDTH = 0;
 window.SCREEN_HEIGHT = 0;
 
@@ -14,9 +13,8 @@ window.addEventListener("resize", () => {
   resizeCanvas(canvas);
 });
 
-// Create the game instance, passing the canvas.
 const game = new Game(canvas);
 game.run();
 
-// Attach game to window for debugging and for UI access (e.g., drawTargetArrow)
+// Attach the game instance to window (for debugging and for use in UI functions)
 window.game = game;
