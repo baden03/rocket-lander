@@ -227,6 +227,9 @@ export class Rocket {
     this.pos.x += this.vel.x * (1 / 60);
     this.pos.y += this.vel.y * (1 / 60);
     this.angle += this.angularVel * (1 / 60);
+   
+     // Normalize the angle to the range [-180, 180)
+    this.angle = ((((this.angle + 180) % 360) + 360) % 360) - 180;
 
     // Dampen velocities and angular velocity.
     this.vel.x *= (1 - 0.1 * (1 / 60));
