@@ -5,6 +5,11 @@ Rocket Lander is a 2D physics-based game where the player pilots a rocket throug
 
 ---
 
+## Demo
+
+A live demo of Rocket Lander is available at: [https://twinpictures.de/lander/](https://twinpictures.de/lander/)
+Try it out to experience the looping terrain, dynamic camera modes, and landing-mode dashboard in action!
+
 ## New Features & Goals for Version 0.0.2
 
 1. **Multiple Modes & Dynamic Camera:**
@@ -74,6 +79,7 @@ rocket-lander/
 │   ├── ui.js           // Manages UI elements (buttons, end messages, target arrow, distance indicator).
 │   ├── terrain.js      // Responsible for generating and drawing the full circular terrain and landing pad placement.
 │   ├── ship.js         // Contains the Rocket (Ship) class with physics, controls, particle effects, and drawing routines.
+│   ├── constants.js    // Defines shared configuration values (e.g., safe landing thresholds, TOTAL_TERRAIN_LENGTH).
 │   └── utils.js        // Utility functions (e.g., degToRad, resizeCanvas) shared across modules.
 └── README.md           // This file – project overview, goals for version 0.0.2, and file structure details.
 
