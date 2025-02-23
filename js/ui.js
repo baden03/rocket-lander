@@ -1,6 +1,7 @@
 // ui.js - UI functions and variables for Rocket Lander (Version 0.0.2)
 // version 0.0.2
 
+import { SAFE_VERTICAL_SPEED, SAFE_HORIZONTAL_DRIFT, SAFE_TILT } from "./constants.js";
 import { TOTAL_TERRAIN_LENGTH } from "./terrain.js";
 
 export const buttonMargin = 20;
@@ -154,6 +155,7 @@ export function drawDashboard(ctx, game) {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   // Example telemetry: Vertical Speed, Horizontal Drift, Tilt Angle.
+  /*
   const telemetryText = 
     `V:${game.rocket.vel.y.toFixed(1)} m/s\n` +
     `H:${game.rocket.vel.x.toFixed(1)} m/s\n` +
@@ -163,6 +165,26 @@ export function drawDashboard(ctx, game) {
   lines.forEach((line, i) => {
     ctx.fillText(line, circleCenterX, circleCenterY + (i - (lines.length - 1) / 2) * lineHeight);
   });
+  */
+
+
+  const vs = game.rocket.vel.y;
+  const hs = game.rocket.vel.x;
+  const tilt = game.rocket.angle;
+
+  // Choose color based on tolerance.
+  const vsColor = Math.abs(vs) <= SAFE_VERTICAL_SPEED ? "green" : "red";
+  const hsColor = Math.abs(hs) <= SAFE_HORIZONTAL_DRIFT ? "green" : "red";
+  const tiltColor = Math.abs(tilt) <= SAFE_TILT ? "green" : "red";
+
+  // Define vertical spacing.
+  const lineHeight = 14;
+  ctx.fillStyle = vsColor;
+  ctx.fillText(`V:${vs.toFixed(1)} m/s`, circleCenterX, circleCenterY - lineHeight);
+  ctx.fillStyle = hsColor;
+  ctx.fillText(`H:${hs.toFixed(1)} m/s`, circleCenterX, circleCenterY);
+  ctx.fillStyle = tiltColor;
+  ctx.fillText(`T:${tilt.toFixed(0)}°`, circleCenterX, circleCenterY + lineHeight);
 
   ctx.restore();
 }
