@@ -19,7 +19,16 @@ Try it out to experience the looping terrain, dynamic camera modes, and landing-
    - The entire terrain for the level is generated at the start, forming a closed loop (a 360° planet).
    - As the player flies around, they eventually return to the initial landing pad, giving the impression of flying around a 2D planet.
 
-3. **TODO: Different Landing Pad Types:**
+3. **TODO: Atmosphere vs. Space:**
+   - Ship triggers "space mode" when flying above atmosphere threshold
+   - In space mode:
+     - View zooms out to show entire planet
+     - Planet displayed as circle with dotted atmospheric boundary
+     - Landing pad marked by yellow navigation dot
+   - Automatically returns to normal "atmospheric mode" when ship re-enters atmosphere
+   - Seamless planet circumnavigation possible in space mode
+
+4. **TODO: Different Landing Pad Types:**
    - **Standard (Takeoff & Landing) Pad:**  
      - Serves as both the starting pad and the landing pad.
    - **Underground Volcano Pads:**  
@@ -30,11 +39,11 @@ Try it out to experience the looping terrain, dynamic camera modes, and landing-
    - **Underground with Cave (Sideways Translation):**  
      - A challenging cave environment where the ship must translate sideways to align with the landing pad.
 
-4. **TODO: Dynamic Gravity:**
+5. **TODO: Dynamic Gravity:**
    - When the rocket is near the surface, gravity remains constant.
    - As the ship flies higher above the terrain, gravity gradually decreases (using the conversion rate of 2 pixels = 1 meter).
 
-5. **UI Separation:**
+6. **UI Separation:**
    - The UI elements (thruster buttons, end messages, etc.) are separated into a dedicated area at the bottom of the screen.
    - The gameplay area (or “window”) is distinct, so scrolling/zooming only affects the terrain and ship.
 
