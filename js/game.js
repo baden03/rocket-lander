@@ -4,6 +4,7 @@
 import { drawUI, thrustLeftButton, thrustRightButton, pitchLeftButton, pitchRightButton, restartButton, getBaseSurfaceY } from "./ui.js";
 import { Terrain, TOTAL_TERRAIN_LENGTH } from "./terrain.js";
 import { Rocket } from "./ship.js";
+import { SAFE_VERTICAL_SPEED, SAFE_HORIZONTAL_DRIFT, SAFE_TILT } from "./constants.js";
 
 export class Game {
   constructor(canvas) {
@@ -148,9 +149,9 @@ export class Game {
         modShipX <= this.terrain.landingPad.end) {
       const padY = getBaseSurfaceY();
       if (Math.abs(bottomCenter.y - padY) < 5) {
-        if (Math.abs(this.rocket.vel.y) < 50 &&
-            Math.abs(this.rocket.vel.x) < 50 &&
-            Math.abs(this.rocket.angle) < 20) {
+        if (Math.abs(this.rocket.vel.y) < SAFE_VERTICAL_SPEED &&
+            Math.abs(this.rocket.vel.x) < SAFE_HORIZONTAL_DRIFT &&
+            Math.abs(this.rocket.angle) < SAFE_TILT) {
           this.rocket.landed = true;
           console.log("Landed successfully!");
         } else {
@@ -267,7 +268,7 @@ export class Game {
   
     // If the game is over, display messages and a restart button.
     if (this.rocket.landed || this.rocket.crashed) {
-      this.ctx.font = "24px Arial";
+      this.ctx.font = "24px Helvetica";
       if (this.rocket.landed) {
         this.ctx.fillStyle = "green";
         this.ctx.fillText("LANDED SUCCESSFULLY! 🚀", SCREEN_WIDTH / 2 - 100, 50);
@@ -294,7 +295,7 @@ export class Game {
         restartButton.height
       );
       this.ctx.fillStyle = "white";
-      this.ctx.font = "20px Arial";
+      this.ctx.font = "20px Helvetica";
       this.ctx.fillText(
         "Restart",
         restartButton.x + 19,
