@@ -19,31 +19,7 @@ Try it out to experience the looping terrain, dynamic camera modes, and landing-
    - The entire terrain for the level is generated at the start, forming a closed loop (a 360° planet).
    - As the player flies around, they eventually return to the initial landing pad, giving the impression of flying around a 2D planet.
 
-3. **TODO: Atmosphere vs. Space:**
-   - Ship triggers "space mode" when flying above atmosphere threshold
-   - In space mode:
-     - View zooms out to show entire planet
-     - Planet displayed as circle with dotted atmospheric boundary
-     - Landing pad marked by yellow navigation dot
-   - Automatically returns to normal "atmospheric mode" when ship re-enters atmosphere
-   - Seamless planet circumnavigation possible in space mode
-
-4. **TODO: Different Landing Pad Types:**
-   - **Standard (Takeoff & Landing) Pad:**  
-     - Serves as both the starting pad and the landing pad.
-   - **Underground Volcano Pads:**  
-     - A surface crater pad integrated into the main terrain.
-     - A deep underground volcano mode that switches to a separate “underground landing” canvas, offering a distinct, more complex landing scenario.
-   - **Underground with Gate:**  
-     - The landing pad is blocked by a gate that must be unlocked (by flying through a target or checkpoint) before landing is possible.
-   - **Underground with Cave (Sideways Translation):**  
-     - A challenging cave environment where the ship must translate sideways to align with the landing pad.
-
-5. **TODO: Dynamic Gravity:**
-   - When the rocket is near the surface, gravity remains constant.
-   - As the ship flies higher above the terrain, gravity gradually decreases (using the conversion rate of 2 pixels = 1 meter).
-
-6. **UI Separation:**
+3. **UI Separation:**
    - The UI elements (thruster buttons, end messages, etc.) are separated into a dedicated area at the bottom of the screen.
    - The gameplay area (or “window”) is distinct, so scrolling/zooming only affects the terrain and ship.
 
@@ -55,6 +31,45 @@ Try it out to experience the looping terrain, dynamic camera modes, and landing-
 
 - **Modularized Code Structure:**  
   - The code has been refactored into separate modules for UI, terrain generation, ship (rocket) behavior, and utility functions. This modular design sets the stage for future levels and additional features.
+
+---
+
+## TODO
+
+- **Atmosphere vs. Space Mode:**
+  - Implement dynamic mode switching:
+    - When the ship flies above an atmosphere threshold, switch to "space mode."
+    - In space mode:
+      - Zoom out to show the entire planet.
+      - Represent the planet as a circle with a dotted atmospheric boundary.
+      - Display a yellow navigation dot for the landing pad.
+    - Automatically switch back to atmospheric mode when the ship re-enters the atmosphere.
+    - Allow seamless planet circumnavigation in space mode.
+
+- **Different Landing Pad Types:**
+  - **Standard (Takeoff & Landing) Pad:** Serves as both the starting pad and the landing pad.
+  - **Underground Volcano Pads:** 
+    - Surface crater pad integrated into the main terrain.
+    - Deep underground volcano mode with a separate “underground landing” canvas.
+  - **Underground with Gate:** The landing pad is blocked by a gate that must be unlocked before landing.
+  - **Underground with Cave (Sideways Translation):** A challenging cave environment where the ship must translate sideways to align with the landing pad.
+
+- **Dynamic Gravity:**
+  - Adjust gravity based on altitude (e.g., using the conversion rate of 2 pixels = 1 meter).
+
+- **Level System:**
+  - **Level 1 – Training:**  
+    - The ship remains in the atmosphere.
+    - The objective is to land safely on the landing pad to complete training.
+  - **Level 2 – Advanced:**  
+    - The ship starts on the landing pad.
+    - The objective is to take off, fly into space, navigate through a target box, and re-enter the atmosphere for a landing.
+
+- **Mode Switching and Camera Enhancements:**
+  - Refine the camera system to handle both the current horizontal scrolling and the new zoom-out (space mode) when the ship approaches the upper canvas boundary.
+
+- **UI Enhancements:**
+  - Further refine UI elements for multi-touch support and responsive button interactions.
 
 ---
 
