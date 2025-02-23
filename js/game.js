@@ -164,18 +164,20 @@ export class Game {
   
     // Otherwise, check collision with the terrain segments.
     // We iterate over the terrain points (which are generated in increasing order from 0 to TOTAL_TERRAIN_LENGTH)
-    for (let i = 0; i < this.terrain.points.length - 1; i++) {
-      const p1 = this.terrain.points[i];
-      const p2 = this.terrain.points[i + 1];
-      // Check if the wrapped ship x is between these two terrain points.
-      if (modShipX >= p1.x && modShipX <= p2.x) {
-        // Interpolate y value at modShipX along the terrain segment
-        const t = (modShipX - p1.x) / (p2.x - p1.x);
-        const groundY = p1.y + t * (p2.y - p1.y);
-        if (bottomCenter.y >= groundY) {
-          this.rocket.crashed = true;
-          console.log("Crashed on rough terrain!");
-          break;
+    else {
+      for (let i = 0; i < this.terrain.points.length - 1; i++) {
+        const p1 = this.terrain.points[i];
+        const p2 = this.terrain.points[i + 1];
+        // Check if the wrapped ship x is between these two terrain points.
+        if (modShipX >= p1.x && modShipX <= p2.x) {
+          // Interpolate y value at modShipX along the terrain segment
+          const t = (modShipX - p1.x) / (p2.x - p1.x);
+          const groundY = p1.y + t * (p2.y - p1.y);
+          if (bottomCenter.y >= groundY) {
+            this.rocket.crashed = true;
+            console.log("Crashed on rough terrain!");
+            break;
+          }
         }
       }
     }
