@@ -1,0 +1,17 @@
+/* styles.css */
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: Helvetica, Arial, sans-serif;
+  background: #000; /* black background for the game */
+  overflow: hidden; /* prevent scrolling */
+  -webkit-user-select: none; /* disable text selection on mobile */
+  -webkit-touch-callout: none; /* disable callouts on long press */
+}
+
+canvas {
+  display: block;
+  width: 100vw;  /* viewport width 100vw */
+  height: 100vh; /* viewport height */
+}
