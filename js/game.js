@@ -1,7 +1,7 @@
 // game.js - Core game logic for Rocket Lander (Version 0.0.2)
 // version 0.0.1
 
-import { drawUI, updateUIButtons, thrustLeftButton, thrustRightButton, pitchLeftButton, pitchRightButton, restartButton, drawTargetArrow, getBaseSurfaceY } from "./ui.js";
+import { drawUI, thrustLeftButton, thrustRightButton, pitchLeftButton, pitchRightButton, restartButton, getBaseSurfaceY } from "./ui.js";
 import { Terrain, TOTAL_TERRAIN_LENGTH } from "./terrain.js";
 import { Rocket } from "./ship.js";
 
@@ -297,15 +297,18 @@ export class Game {
       this.ctx.font = "20px Arial";
       this.ctx.fillText(
         "Restart",
-        restartButton.x + 17,
-        restartButton.y + 28
+        restartButton.x + 19,
+        restartButton.y + 27
       );
     }
   
     // Always draw a target arrow pointing to the landing pad.
+    /*
     if (this.terrain.landingPad) {
       drawTargetArrow(this.ctx, this.terrain.landingPad);
     }
+    */
+
   }
 
   loop(timestamp) {

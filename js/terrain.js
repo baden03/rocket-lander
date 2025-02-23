@@ -32,6 +32,7 @@ export class Terrain {
       const firstPoint = this.points[0];
       this.points.push({ x: TOTAL_TERRAIN_LENGTH, y: firstPoint.y });
     }
+    //console.log(this.landingPad);
   }
 
   // Draw the terrain given a horizontal camera offset.

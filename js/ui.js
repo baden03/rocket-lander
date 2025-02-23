@@ -1,5 +1,7 @@
 // ui.js - UI functions and variables for Rocket Lander (Version 0.0.2)
-// version 0.0.1
+// version 0.0.2
+
+import { TOTAL_TERRAIN_LENGTH } from "./terrain.js";
 
 export const buttonMargin = 20;
 export const thrustButtonWidth = 100;
@@ -19,23 +21,26 @@ export function updateUIButtons() {
   const SCREEN_WIDTH = window.SCREEN_WIDTH;
   const SCREEN_HEIGHT = window.SCREEN_HEIGHT;
   
+  // Position thrust buttons at bottom left/right
   thrustLeftButton.x = buttonMargin;
   thrustLeftButton.y = SCREEN_HEIGHT - thrustButtonHeight - buttonMargin;
 
   thrustRightButton.x = SCREEN_WIDTH - thrustButtonWidth - buttonMargin;
   thrustRightButton.y = SCREEN_HEIGHT - thrustButtonHeight - buttonMargin;
 
+  // Position pitch buttons above the corresponding thrust buttons
   pitchLeftButton.x = thrustLeftButton.x + (thrustButtonWidth - pitchButtonWidth) / 2;
   pitchLeftButton.y = thrustLeftButton.y - pitchButtonHeight - buttonGap;
 
   pitchRightButton.x = thrustRightButton.x + (thrustButtonWidth - pitchButtonWidth) / 2;
   pitchRightButton.y = thrustRightButton.y - pitchButtonHeight - buttonGap;
 
-  restartButton.x = SCREEN_WIDTH / 2 - 50;
+  // Center the restart button within the UI area (if game over)
+  restartButton.x = SCREEN_WIDTH / 2 - restartButton.width / 2;
   restartButton.y = SCREEN_HEIGHT - 200;
 }
 
-// Attach to window so that utils.js can find it
+// Expose updateUIButtons globally if needed.
 window.updateUIButtons = updateUIButtons;
 
 // Helper: Check if any active pointer is over the given button
@@ -55,10 +60,6 @@ function isPointerOver(button, game) {
 }
 
 // Determine if specific button is active (pressed either by key or pointer)
-// For thrust left: keys "ArrowLeft" or "ShiftLeft"
-// For thrust right: keys "ArrowRight" or "ShiftRight"
-// For pitch left: key "KeyQ"
-// For pitch right: key "KeyE"
 function isThrustLeftActive(game) {
   return game.keys["ArrowLeft"] || game.keys["ShiftLeft"] || isPointerOver(thrustLeftButton, game);
 }
@@ -75,14 +76,112 @@ function isPitchRightActive(game) {
   return game.keys["KeyE"] || isPointerOver(pitchRightButton, game);
 }
 
-// Draw the UI area and landing info (minimap dashboard for landing mode)
-export function drawUI(ctx, game) {
+/**
+ * drawDashboard draws the landing-mode dashboard (minimap).
+ * The dashboard is a square minimap in the bottom UI area.
+ * Within it, a circle (representing the planet) is drawn.
+ * The circle rotates as the ship scrolls, and a yellow dot on its perimeter indicates the landing pad.
+ * Telemetry info is drawn at the center of the circle.
+ */
+export function drawDashboard(ctx, game) {
   const SCREEN_WIDTH = window.SCREEN_WIDTH;
   const SCREEN_HEIGHT = window.SCREEN_HEIGHT;
-  const uiHeight = SCREEN_HEIGHT * 0.2; // UI occupies the bottom 20% of the screen
   
-  // Draw UI background area
+  // Define the UI area (bottom 20% of the screen)
+  const uiHeight = SCREEN_HEIGHT * 0.2;
+  // The dashboard is a square taking up 80% of the UI height.
+  const dashboardSize = uiHeight * 0.8;
+  // Center the dashboard horizontally in the UI area.
+  const dashboardX = (SCREEN_WIDTH - dashboardSize) / 2;
+  // Vertically, center it within the UI area.
+  const dashboardY = SCREEN_HEIGHT - uiHeight + (uiHeight - dashboardSize) / 2;
+
   ctx.save();
+  // Draw the dashboard background and border.
+  ctx.fillStyle = "#111";
+  ctx.fillRect(dashboardX, dashboardY, dashboardSize, dashboardSize);
+  ctx.strokeStyle = "#888";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(dashboardX, dashboardY, dashboardSize, dashboardSize);
+
+  // Define the circle (planet) within the dashboard.
+  const margin = 5; // Inner margin.
+  const circleCenterX = dashboardX + dashboardSize / 2;
+  const circleCenterY = dashboardY + dashboardSize / 2;
+  const circleRadius = (dashboardSize / 2) - margin;
+
+  // Draw the circle (planet) border.
+  ctx.beginPath();
+  ctx.arc(circleCenterX, circleCenterY, circleRadius, 0, 2 * Math.PI);
+  ctx.strokeStyle = "#0f0";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Landing pad indicator.
+  if (game.terrain.landingPad) {
+    // Calculate landing pad center (global x).
+    const padCenter = (game.terrain.landingPad.start + game.terrain.landingPad.end) / 2;
+    const shipX = game.rocket.pos.x;
+
+    // Compute horizontal difference, adjusted for wrapping.
+    let dx = padCenter - shipX;
+    const halfTerrain = TOTAL_TERRAIN_LENGTH / 2;
+    if (dx > halfTerrain) {
+      dx -= TOTAL_TERRAIN_LENGTH;
+    } else if (dx < -halfTerrain) {
+      dx += TOTAL_TERRAIN_LENGTH;
+    }
+    // Map dx to an angle in degrees.
+    let relativeAngleDeg = (dx / TOTAL_TERRAIN_LENGTH) * 360;
+    // Adjust so that when the ship is directly over the pad, the dot is at 12 o'clock.
+    const dotAngleDeg = relativeAngleDeg - 90;
+    const dotAngleRad = dotAngleDeg * (Math.PI / 180);
+
+    // Compute the dot's position on the circle perimeter.
+    const dotX = circleCenterX + circleRadius * Math.cos(dotAngleRad);
+    const dotY = circleCenterY + circleRadius * Math.sin(dotAngleRad);
+
+    // Draw the landing pad dot.
+    ctx.beginPath();
+    ctx.arc(dotX, dotY, 5, 0, 2 * Math.PI);
+    ctx.fillStyle = "#FFDD00";
+    ctx.fill();
+  }
+
+  // Draw telemetry info in the center of the circle.
+  ctx.font = "12px Helvetica";
+  ctx.fillStyle = "white";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  // Example telemetry: Vertical Speed, Horizontal Drift, Tilt Angle.
+  const telemetryText = 
+    `V:${game.rocket.vel.y.toFixed(1)} m/s\n` +
+    `H:${game.rocket.vel.x.toFixed(1)} m/s\n` +
+    `T:${game.rocket.angle.toFixed(0)}°`;
+  const lines = telemetryText.split("\n");
+  const lineHeight = 14;
+  lines.forEach((line, i) => {
+    ctx.fillText(line, circleCenterX, circleCenterY + (i - (lines.length - 1) / 2) * lineHeight);
+  });
+
+  ctx.restore();
+}
+
+/**
+ * drawUI draws the overall UI.
+ * It updates button positions, then renders the UI background, buttons, restart button (if needed),
+ * and the dashboard (minimap) with telemetry.
+ */
+export function drawUI(ctx, game) {
+  // Update button positions to current screen dimensions.
+  updateUIButtons();
+
+  const SCREEN_WIDTH = window.SCREEN_WIDTH;
+  const SCREEN_HEIGHT = window.SCREEN_HEIGHT;
+  const uiHeight = SCREEN_HEIGHT * 0.2; // Bottom 20% for UI
+
+  ctx.save();
+  // Draw the UI background for the bottom area.
   ctx.fillStyle = "#222";
   ctx.fillRect(0, SCREEN_HEIGHT - uiHeight, SCREEN_WIDTH, uiHeight);
   ctx.strokeStyle = "#777";
@@ -90,7 +189,7 @@ export function drawUI(ctx, game) {
   ctx.strokeRect(0, SCREEN_HEIGHT - uiHeight, SCREEN_WIDTH, uiHeight);
   ctx.restore();
 
-  // Draw thruster and pitch buttons
+  // Draw thrust and pitch buttons.
   ctx.save();
   ctx.fillStyle = isThrustLeftActive(game) ? "#FFA200" : "#777";
   ctx.fillRect(thrustLeftButton.x, thrustLeftButton.y, thrustLeftButton.width, thrustLeftButton.height);
@@ -105,84 +204,24 @@ export function drawUI(ctx, game) {
   ctx.fillRect(pitchRightButton.x, pitchRightButton.y, pitchRightButton.width, pitchRightButton.height);
   ctx.restore();
 
-  // Get telemetry values from the rocket
-  const verticalSpeed = game.rocket.vel.y;
-  const horizontalDrift = game.rocket.vel.x;
-  const tiltAngle = game.rocket.angle;
+  // Draw restart button if game over.
+  if (game.rocket.landed || game.rocket.crashed) {
+    ctx.save();
+    ctx.fillStyle = "gray";
+    ctx.fillRect(restartButton.x, restartButton.y, restartButton.width, restartButton.height);
+    ctx.strokeStyle = "white";
+    ctx.strokeRect(restartButton.x, restartButton.y, restartButton.width, restartButton.height);
+    ctx.fillStyle = "white";
+    ctx.font = "20px Arial";
+    ctx.fillText("Restart", restartButton.x + 17, restartButton.y + 28);
+    ctx.restore();
+  }
 
-  // Define safe thresholds
-  const safeVerticalSpeed = 50;
-  const safeHorizontalDrift = 50;
-  const safeTilt = 20;
-
-  // Determine colors based on safe thresholds
-  const vsColor = Math.abs(verticalSpeed) <= safeVerticalSpeed ? "green" : "red";
-  const hdColor = Math.abs(horizontalDrift) <= safeHorizontalDrift ? "green" : "red";
-  const tiltColor = Math.abs(tiltAngle) <= safeTilt ? "green" : "red";
-
-  // Center the telemetry text within the bottom UI area
-  ctx.save();
-  ctx.font = "18px Helvetica";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  const centerX = SCREEN_WIDTH / 2;
-  const centerY = SCREEN_HEIGHT - uiHeight / 2;
-  const lineSpacing = 25; // spacing between lines
-
-  ctx.fillStyle = vsColor;
-  ctx.fillText(`Vertical Speed: ${verticalSpeed.toFixed(1)} m/s`, centerX, centerY - lineSpacing);
-  
-  ctx.fillStyle = hdColor;
-  ctx.fillText(`Horizontal Drift: ${horizontalDrift.toFixed(1)} m/s`, centerX, centerY);
-  
-  ctx.fillStyle = tiltColor;
-  ctx.fillText(`Tilt Angle: ${tiltAngle.toFixed(1)}°`, centerX, centerY + lineSpacing);
-  ctx.restore();
+  // Draw the dashboard (minimap with telemetry) in landing mode.
+  drawDashboard(ctx, game);
 }
 
-// Draw a target arrow (for scroll mode) pointing toward the landing pad.
-// The landingPad is an object with properties 'start' and 'end'; its center is computed.
-export function drawTargetArrow(ctx, landingPad) {
-  const SCREEN_WIDTH = window.SCREEN_WIDTH;
-  const SCREEN_HEIGHT = window.SCREEN_HEIGHT;
-  
-  // Calculate landing pad center in world coordinates
-  const padX = (landingPad.start + landingPad.end) / 2;
-  const padY = getBaseSurfaceY();
-  
-  // In scroll mode, assume the ship is centered. The landing pad's screen position is:
-  const cx = SCREEN_WIDTH / 2;
-  const cy = SCREEN_HEIGHT / 2;
-  // Calculate direction from the ship (center) to the landing pad's world position
-  // The ship's world position is window.game.rocket.pos (attached in main.js)
-  const dx = padX - window.game.rocket.pos.x;
-  const dy = padY - window.game.rocket.pos.y;
-  const angle = Math.atan2(dy, dx);
-  
-  const halfWidth = SCREEN_WIDTH / 2;
-  const halfHeight = SCREEN_HEIGHT / 2;
-  const cosA = Math.cos(angle);
-  const sinA = Math.sin(angle);
-  const scaleX = halfWidth / Math.abs(cosA);
-  const scaleY = halfHeight / Math.abs(sinA);
-  const scale = Math.min(scaleX, scaleY);
-  const arrowX = cx + cosA * scale * 0.9;
-  const arrowY = cy + sinA * scale * 0.9;
-  
-  ctx.save();
-  ctx.translate(arrowX, arrowY);
-  ctx.rotate(angle);
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(-20, -10);
-  ctx.lineTo(-20, 10);
-  ctx.closePath();
-  ctx.fillStyle = 'red';
-  ctx.fill();
-  ctx.restore();
-}
-
-// Define getBaseSurfaceY for consistency
+// Returns the base surface y-coordinate (used by collision checks and terrain calculations)
 export function getBaseSurfaceY() {
   const SCREEN_HEIGHT = window.SCREEN_HEIGHT;
   return SCREEN_HEIGHT * 0.7;
