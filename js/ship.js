@@ -29,6 +29,7 @@ class Particle {
   }
 
   // Draws the particle using its global coordinates.
+  /*
   draw(ctx) {
     ctx.save();
     const alpha = Math.min(this.lifetime / 1.0, 1);
@@ -38,6 +39,7 @@ class Particle {
     ctx.fill();
     ctx.restore();
   }
+  */
 }
 
 // Rocket class represents the player's ship.
@@ -58,6 +60,7 @@ export class Rocket {
       { x: 10, y: 10 },
       { x: -10, y: 10 }
     ];
+
   }
 
   // Returns the rocket's shape after applying rotation and translation.
@@ -75,6 +78,7 @@ export class Rocket {
 
   // Private helper method for drawing the ship (including particles)
   // in global coordinates.
+  /*
   _drawShip(ctx) {
     // Draw particles using their global positions.
     this.particles.forEach(p => p.draw(ctx));
@@ -87,9 +91,11 @@ export class Rocket {
       ctx.lineTo(pts[i].x, pts[i].y);
     }
     ctx.closePath();
-    ctx.strokeStyle = this.crashed ? "red" : "white";
-    ctx.stroke();
+    // Fill the ship with yellow if healthy, red if crashed.
+    ctx.fillStyle = this.crashed ? "red" : "yellow";
+    ctx.fill();
   }
+  */
 
   // Helper method for drawing particles relative to the ship's local origin.
   // In this revised version, we also rotate the relative particle coordinates by the
@@ -124,6 +130,7 @@ export class Rocket {
 
   // drawAt() uses an effective (wrapped) x coordinate and provided y.
   // In this version, we draw the ship relative to its own local origin.
+  // drawAt() uses an effective (wrapped) x coordinate and provided y.
   drawAt(ctx, effectiveX, y) {
     ctx.save();
     // Translate to the effective drawing position.
@@ -131,15 +138,25 @@ export class Rocket {
     // Apply the ship's rotation.
     ctx.rotate(degToRad(this.angle));
     
-    // Draw the ship shape using its local coordinates (from this.points).
+    // Draw the ship shape using its local coordinates.
     ctx.beginPath();
     ctx.moveTo(this.points[0].x, this.points[0].y);
     for (let i = 1; i < this.points.length; i++) {
       ctx.lineTo(this.points[i].x, this.points[i].y);
     }
     ctx.closePath();
-    ctx.strokeStyle = this.crashed ? "red" : "white";
-    ctx.stroke();
+    
+    // Use a gradient fill for a healthy ship, or red if crashed.
+    if (this.crashed) {
+      ctx.fillStyle = "red";
+    } else {
+      // Create a linear gradient relative to the ship's local coordinate system.
+      const gradient = ctx.createLinearGradient(0, -20, 0, 10);
+      gradient.addColorStop(0, "yellow");
+      gradient.addColorStop(1, "darkorange");
+      ctx.fillStyle = gradient;
+    }
+    ctx.fill();
 
     // Draw particles relative to the ship.
     this._drawParticlesRelative(ctx);
