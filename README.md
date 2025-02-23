@@ -65,7 +65,7 @@ rocket-lander/
 │   ├── ship.js         // Contains the Rocket (Ship) class with physics, controls, particle effects, and drawing routines.
 │   ├── constants.js    // Defines shared configuration values (e.g., safe landing thresholds, TOTAL_TERRAIN_LENGTH).
 │   └── utils.js        // Utility functions (e.g., degToRad, resizeCanvas) shared across modules.
-└── README.md           // This file – project overview, goals for version 0.0.2, and file structure details.
+└── README.md           // Project overview, goals for version 0.0.2, and file structure details.
 
 ### Module Descriptions
 
