@@ -52,6 +52,8 @@ Try it out to experience the looping terrain, dynamic camera modes, and landing-
 ## File Structure
 
 To keep our code modular and maintainable, we've restructured the project as follows:
+
+```
 rocket-lander/
 ├── index.html          // Main HTML file with canvas and viewport settings.
 ├── css/
@@ -66,6 +68,7 @@ rocket-lander/
 │   ├── constants.js    // Defines shared configuration values (e.g., safe landing thresholds, TOTAL_TERRAIN_LENGTH).
 │   └── utils.js        // Utility functions (e.g., degToRad, resizeCanvas) shared across modules.
 └── README.md           // Project overview, goals for version 0.0.2, and file structure details.
+```
 
 ### Module Descriptions
 
