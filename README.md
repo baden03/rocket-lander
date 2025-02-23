@@ -12,20 +12,14 @@ Try it out to experience the looping terrain, dynamic camera modes, and landing-
 
 ## New Features & Goals for Version 0.0.2
 
-1. **Multiple Modes & Dynamic Camera:**
-   - **Static Mode (Landing/Takeoff):**  
-     - The gameplay area is fixed.
-     - The rocket and terrain move freely.
-   - **Scrolling/Zoom-Out Mode:**  
-     - When the ship nears the edge, the view transitions to a zoomed-out, scrolling view.
-     - The ship is recentered on the canvas.
-     - The target landing pad is highlighted (e.g., with a dotted box), and an arrow continuously points toward it.
+1. **Dynamic Camera:**
+     - When the ship nears the left and right edges of the screen, the canvase transitions to a scrolling view.
 
 2. **Continuous, Circular Terrain:**
    - The entire terrain for the level is generated at the start, forming a closed loop (a 360° planet).
    - As the player flies around, they eventually return to the initial landing pad, giving the impression of flying around a 2D planet.
 
-3. **Different Landing Pad Types:**
+3. **TODO: Different Landing Pad Types:**
    - **Standard (Takeoff & Landing) Pad:**  
      - Serves as both the starting pad and the landing pad.
    - **Underground Volcano Pads:**  
@@ -36,7 +30,7 @@ Try it out to experience the looping terrain, dynamic camera modes, and landing-
    - **Underground with Cave (Sideways Translation):**  
      - A challenging cave environment where the ship must translate sideways to align with the landing pad.
 
-4. **Dynamic Gravity:**
+4. **TODO: Dynamic Gravity:**
    - When the rocket is near the surface, gravity remains constant.
    - As the ship flies higher above the terrain, gravity gradually decreases (using the conversion rate of 2 pixels = 1 meter).
 
@@ -48,17 +42,7 @@ Try it out to experience the looping terrain, dynamic camera modes, and landing-
 
 - **UI Minimapa Dashboard:**  
   - A dedicated minimap is now integrated into the bottom UI controls area.  
-  - The minimap displays an arrow indicating the direction to the target landing pad, along with numerical readouts of the distance from the ship to the pad (in meters and kilometers) and current effective gravity information if desired.  
-  - This dashboard provides a clear, consistent source of navigational information without cluttering the main gameplay window.
-
-- **Target Arrow in Scroll Mode:**  
-  - In scrolling/zoom-out mode, an arrow on the canvas border continuously points toward the target landing pad when the ship is off-screen, ensuring the player always knows where to land.
-
-- **Dynamic Gravity Adjustments:**  
-  - Gravity remains constant near the surface but gradually decreases the further the ship is from the terrain. This is visually represented in the UI minimap/dashboard to help players plan their approach.
-
-- **Enhanced End Messages:**  
-  - End messages now appear one line at a time, fading in every 2 seconds, to provide clear feedback and instructions upon level completion.
+  - The minimap displays a representation of the planet and the position of the landing pad in relation to the ship along with telemetry information for a safe landing.
 
 - **Modularized Code Structure:**  
   - The code has been refactored into separate modules for UI, terrain generation, ship (rocket) behavior, and utility functions. This modular design sets the stage for future levels and additional features.
@@ -105,6 +89,9 @@ rocket-lander/
 
 - **js/ship.js:**  
   Contains the Rocket (or Ship) class with its physics, control methods, particle effects, and drawing routines.
+
+- **js/constants.js:**  
+  Defines shared configuration values (e.g., safe landing thresholds, TOTAL_TERRAIN_LENGTH).
 
 - **js/utils.js:**  
   Provides helper functions (like degToRad, canvas resizing, etc.) used throughout the project.
