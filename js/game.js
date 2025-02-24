@@ -20,6 +20,8 @@ export class Game {
     this.cameraOffsetX = 0;
     this.cameraOffsetY = 0;
 
+    this.cameraPannedUp = false;
+
     // Keyboard events
     window.addEventListener("keydown", (e) => {
       if (["ArrowLeft", "ArrowRight", "ShiftLeft", "ShiftRight"].includes(e.code)) {
@@ -126,7 +128,7 @@ export class Game {
     // Calculate ship's screen coordinates
     let rocketScreenX = this.rocket.pos.x - this.absoluteCameraOffsetX;
     let rocketScreenY = this.rocket.pos.y - this.cameraOffsetY;
-  
+
     // Horizontal adjustments (unchanged)
     if (rocketScreenX < leftThreshold) {
       this.absoluteCameraOffsetX -= (leftThreshold - rocketScreenX) * 0.1;
@@ -135,23 +137,18 @@ export class Game {
     }
   
     // Vertical adjustments
-    // If ship goes above the top threshold, pan up.
     if (rocketScreenY < topThreshold) {
-      this.cameraOffsetY += (this.rocket.pos.y - topThreshold - this.cameraOffsetY) * 0.1;
+      // Rocket is too high: adjust offset so that it stays at the topThreshold.
+      //this.cameraOffsetY += (this.rocket.pos.y - topThreshold - this.cameraOffsetY) * 0.1;
+      this.cameraOffsetY += (this.rocket.pos.y - this.cameraOffsetY) * 0.1;
       this.cameraPannedUp = true;
     }
-  
-    // If camera has been panned up and ship is in the bottom half, pan down.
-    if (this.cameraPannedUp && rocketScreenY > bottomHalf) {
-      // Gradually reduce cameraOffsetY, ensuring we don't overshoot.
-      this.cameraOffsetY -= (this.cameraOffsetY) * 0.1;
-      // Lock camera once close to the ground level.
-      if (this.cameraOffsetY < 1) {
-        this.cameraOffsetY = 0;
-        this.cameraPannedUp = false;
-      }
+
+    if(this.cameraOffsetY > 0){
+      this.cameraOffsetY = 0;
+      this.cameraPannedUp = false;
     }
-  
+
     // Normalize horizontal offset for terrain rendering.
     this.cameraOffsetX = ((this.absoluteCameraOffsetX % TOTAL_TERRAIN_LENGTH) + TOTAL_TERRAIN_LENGTH) % TOTAL_TERRAIN_LENGTH;
   }
@@ -275,16 +272,18 @@ export class Game {
   
     // Draw the terrain using the effective camera offset.
     this.terrain.draw(this.ctx, this.cameraOffsetX, this.cameraOffsetY);
-
+    this.terrain.drawSecondary(this.ctx, this.cameraOffsetX, this.cameraOffsetY, this.rocket.pos.y);
     // Draw the atmosphere boundary.
     this.ctx.save();
-    this.ctx.setLineDash([5, 5]); // 5px dash, 5px gap
-    this.ctx.strokeStyle = 'white'; // or another color that fits your game
+    this.ctx.setLineDash([5, 5]);
+    this.ctx.strokeStyle = 'white';
     this.ctx.beginPath();
-    this.ctx.moveTo(0, KARMIN_LINE - this.cameraOffsetY);
-    this.ctx.lineTo(SCREEN_WIDTH, KARMIN_LINE - this.cameraOffsetY);
+    const karminLineWorldY = getBaseSurfaceY() - KARMIN_LINE;
+    const karminLineScreenY = karminLineWorldY - this.cameraOffsetY;
+    this.ctx.moveTo(0, karminLineScreenY);
+    this.ctx.lineTo(SCREEN_WIDTH, karminLineScreenY);
     this.ctx.stroke();
-    this.ctx.restore(); // resets the dash setting
+    this.ctx.restore();
   
     // Compute the effective x position for the rocket.
     // This maps the rocket’s global x (offset by the continuous camera offset)
