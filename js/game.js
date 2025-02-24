@@ -123,7 +123,6 @@ export class Game {
     const leftThreshold = 0.2 * SCREEN_WIDTH;
     const rightThreshold = 0.8 * SCREEN_WIDTH;
     const topThreshold = 0.1 * SCREEN_HEIGHT;
-    const bottomHalf = 0.5 * SCREEN_HEIGHT;
   
     // Calculate ship's screen coordinates
     let rocketScreenX = this.rocket.pos.x - this.absoluteCameraOffsetX;
@@ -137,10 +136,10 @@ export class Game {
     }
   
     // Vertical adjustments
+    this.cameraOffsetY += (this.rocket.pos.y - this.cameraOffsetY) * 0.1;
     if (rocketScreenY < topThreshold) {
       // Rocket is too high: adjust offset so that it stays at the topThreshold.
-      //this.cameraOffsetY += (this.rocket.pos.y - topThreshold - this.cameraOffsetY) * 0.1;
-      this.cameraOffsetY += (this.rocket.pos.y - this.cameraOffsetY) * 0.1;
+      this.cameraOffsetY += (this.rocket.pos.y - topThreshold - this.cameraOffsetY) * 0.1;
       this.cameraPannedUp = true;
     }
 
