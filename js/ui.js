@@ -1,7 +1,7 @@
 // ui.js - UI functions and variables for Rocket Lander (Version 0.0.2)
 // version 0.0.2
 
-import { SAFE_VERTICAL_SPEED, SAFE_HORIZONTAL_DRIFT, SAFE_TILT } from "./constants.js";
+import { SAFE_VERTICAL_SPEED, SAFE_HORIZONTAL_DRIFT, SAFE_TILT, KARMIN_LINE } from "./constants.js";
 import { TOTAL_TERRAIN_LENGTH } from "./terrain.js";
 
 export const buttonMargin = 20;
@@ -247,4 +247,18 @@ export function drawUI(ctx, game) {
 export function getBaseSurfaceY() {
   const SCREEN_HEIGHT = window.SCREEN_HEIGHT;
   return SCREEN_HEIGHT * 0.7;
+}
+
+function drawAtmosphereBoundary(ctx) {
+  const SCREEN_WIDTH = window.SCREEN_WIDTH;
+  ctx.save();
+  ctx.setLineDash([5, 5]); // Creates a dotted line effect
+  ctx.beginPath();
+  ctx.moveTo(0, KARMIN_LINE);
+  ctx.lineTo(SCREEN_WIDTH, KARMIN_LINE);
+  ctx.strokeStyle = "#FFF"; // White dotted line
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.setLineDash([]); // Reset to solid lines
+  ctx.restore();
 }
