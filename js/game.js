@@ -205,16 +205,19 @@ export class Game {
   }
 
   displayEndMessage(ctx) {
+    console.log("displaying end message");
     const messages = [
       "By the way, in case you did not know:",
       "Left Shift and Right Shift control the rocket's thrust...",
       "...as do the left/right arrow keys.",
       "Q and E control the rocket's pitch.",
+      /*
       "This is just a prototype build with a super cool 7-year-old;",
       "levels and other features are coming...",
       "...maybe.",
       "So show a little kindness, mmkay?",
       "Forks and pull requests are welcome."
+      */
     ];
     if (!this.endMessageStartTime) {
       this.endMessageStartTime = performance.now();
@@ -232,7 +235,7 @@ export class Game {
       ctx.globalAlpha = alpha;
       ctx.fillStyle = "white";
       ctx.font = "20px Arial";
-      ctx.fillText(messages[i], window.SCREEN_WIDTH / 2 - 200, 100 + i * 30);
+      ctx.fillText(messages[i], window.SCREEN_WIDTH / 2 - 200, 200 + i * 30);
       ctx.restore();
     }
   }
@@ -336,6 +339,9 @@ export class Game {
         restartButton.x + 19,
         restartButton.y + 27
       );
+
+      // Display end messages (fading in one line at a time)
+      this.displayEndMessage(this.ctx);
     }
   
     // Always draw a target arrow pointing to the landing pad.
