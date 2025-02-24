@@ -205,7 +205,6 @@ export class Game {
   }
 
   displayEndMessage(ctx) {
-    console.log("displaying end message");
     const messages = [
       "By the way, in case you did not know:",
       "Left Shift and Right Shift control the rocket's thrust...",
