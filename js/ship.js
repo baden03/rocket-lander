@@ -2,6 +2,8 @@
 // version 0.0.2
 
 import { degToRad } from "./utils.js";
+import { getBaseSurfaceY } from "./ui.js";
+import { KARMIN_LINE } from "./constants.js";
 
 // Particle class represents exhaust particles from the rocket.
 class Particle {
@@ -239,12 +241,22 @@ export class Rocket {
   // Updates the rocket's physics and particles.
   update() {
     if (this.crashed || this.landed) return;
-    // Apply base gravity.
-    this.vel.y += 60 * (1 / 60);
+
+    const karminLineY = getBaseSurfaceY() - KARMIN_LINE;
+
+    if (this.pos.y < karminLineY) {
+      // The ship is above the Karmin line.
+      // Apply modified physics: lower gravity and reduced friction.
+      this.vel.y += 15 * (1 / 60);
+    }
+    else{
+      // Apply base gravity.
+      this.vel.y += 60 * (1 / 60);
+    }
     this.pos.x += this.vel.x * (1 / 60);
     this.pos.y += this.vel.y * (1 / 60);
     this.angle += this.angularVel * (1 / 60);
-   
+
      // Normalize the angle to the range [-180, 180)
     this.angle = ((((this.angle + 180) % 360) + 360) % 360) - 180;
 
