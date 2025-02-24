@@ -1,5 +1,5 @@
 // ship.js - Defines the Rocket class for Rocket Lander (Version 0.0.2)
-// version 0.0.2
+// version 0.0.3
 
 import { degToRad } from "./utils.js";
 import { getBaseSurfaceY } from "./ui.js";

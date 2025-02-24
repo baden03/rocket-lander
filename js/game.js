@@ -1,5 +1,5 @@
 // game.js - Core game logic for Rocket Lander (Version 0.0.2)
-// version 0.0.2
+// version 0.0.3
 
 import { drawUI, thrustLeftButton, thrustRightButton, pitchLeftButton, pitchRightButton, restartButton, getBaseSurfaceY } from "./ui.js";
 import { Terrain, TOTAL_TERRAIN_LENGTH } from "./terrain.js";

@@ -1,4 +1,5 @@
 // terrain.js - Updated terrain drawing for a looping terrain
+// version 0.0.2
 
 import { getBaseSurfaceY } from "./ui.js";
 export const TOTAL_TERRAIN_LENGTH = 10000; // Total horizontal length

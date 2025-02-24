@@ -1,5 +1,5 @@
 // constants.js
-// version 0.0.1
+// version 0.0.2
 
 export const SAFE_VERTICAL_SPEED = 50;
 export const SAFE_HORIZONTAL_DRIFT = 50;
