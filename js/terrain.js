@@ -37,20 +37,20 @@ export class Terrain {
 
   // Draw the terrain given a horizontal camera offset.
   // We draw three copies (for i = -1, 0, 1) to cover the visible range.
-  draw(ctx, cameraOffsetX = 0) {
-    const SCREEN_WIDTH = window.SCREEN_WIDTH;
+  draw(ctx, cameraOffsetX = 0, cameraOffsetY = 0) {
     for (let i = -1; i <= 1; i++) {
       ctx.beginPath();
       for (let j = 0; j < this.points.length; j++) {
-        let point = this.points[j];
+        const point = this.points[j];
         // Shift each copy by i * TOTAL_TERRAIN_LENGTH
-        let worldX = point.x + i * TOTAL_TERRAIN_LENGTH;
-        // Compute screen position relative to camera offset.
-        let screenX = worldX - cameraOffsetX;
+        const worldX = point.x + i * TOTAL_TERRAIN_LENGTH;
+        // Compute screen position relative to both horizontal and vertical camera offsets.
+        const screenX = worldX - cameraOffsetX;
+        const screenY = point.y - cameraOffsetY;
         if (j === 0) {
-          ctx.moveTo(screenX, point.y);
+          ctx.moveTo(screenX, screenY);
         } else {
-          ctx.lineTo(screenX, point.y);
+          ctx.lineTo(screenX, screenY);
         }
       }
       ctx.strokeStyle = "white";
@@ -60,9 +60,10 @@ export class Terrain {
     // Draw the landing pad on all copies.
     if (this.landingPad) {
       const padWidth = this.landingPad.end - this.landingPad.start;
-      const padY = getBaseSurfaceY();
+      // Adjust the landing pad's y-coordinate with cameraOffsetY.
+      const padY = getBaseSurfaceY() - cameraOffsetY;
       for (let i = -1; i <= 1; i++) {
-        let padScreenX = this.landingPad.start + i * TOTAL_TERRAIN_LENGTH - cameraOffsetX;
+        const padScreenX = this.landingPad.start + i * TOTAL_TERRAIN_LENGTH - cameraOffsetX;
         ctx.save();
         ctx.fillStyle = "yellow";
         ctx.fillRect(padScreenX, padY, padWidth, 5);

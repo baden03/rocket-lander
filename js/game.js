@@ -1,10 +1,10 @@
 // game.js - Core game logic for Rocket Lander (Version 0.0.2)
-// version 0.0.1
+// version 0.0.2
 
 import { drawUI, thrustLeftButton, thrustRightButton, pitchLeftButton, pitchRightButton, restartButton, getBaseSurfaceY } from "./ui.js";
 import { Terrain, TOTAL_TERRAIN_LENGTH } from "./terrain.js";
 import { Rocket } from "./ship.js";
-import { SAFE_VERTICAL_SPEED, SAFE_HORIZONTAL_DRIFT, SAFE_TILT } from "./constants.js";
+import { SAFE_VERTICAL_SPEED, SAFE_HORIZONTAL_DRIFT, SAFE_TILT, KARMIN_LINE } from "./constants.js";
 
 export class Game {
   constructor(canvas) {
@@ -18,6 +18,7 @@ export class Game {
     this.endMessageStartTime = null;
     // Camera horizontal offset for scrolling mode
     this.cameraOffsetX = 0;
+    this.cameraOffsetY = 0;
 
     // Keyboard events
     window.addEventListener("keydown", (e) => {
@@ -52,6 +53,7 @@ export class Game {
     this.activePointers = {};
     this.endMessageStartTime = null;
     this.cameraOffsetX = 0;
+    this.cameraOffsetY = 0;
     this.absoluteCameraOffsetX = 0;
   }
 
@@ -115,20 +117,43 @@ export class Game {
   // Update camera offset when the rocket nears the left/right boundaries (20% from the edge)
   updateCamera() {
     const SCREEN_WIDTH = window.SCREEN_WIDTH;
+    const SCREEN_HEIGHT = window.SCREEN_HEIGHT;
     const leftThreshold = 0.2 * SCREEN_WIDTH;
     const rightThreshold = 0.8 * SCREEN_WIDTH;
-
+    const topThreshold = 0.1 * SCREEN_HEIGHT;
+    const bottomHalf = 0.5 * SCREEN_HEIGHT;
+  
+    // Calculate ship's screen coordinates
     let rocketScreenX = this.rocket.pos.x - this.absoluteCameraOffsetX;
-    
+    let rocketScreenY = this.rocket.pos.y - this.cameraOffsetY;
+  
+    // Horizontal adjustments (unchanged)
     if (rocketScreenX < leftThreshold) {
       this.absoluteCameraOffsetX -= (leftThreshold - rocketScreenX) * 0.1;
     } else if (rocketScreenX > rightThreshold) {
       this.absoluteCameraOffsetX += (rocketScreenX - rightThreshold) * 0.1;
     }
-    
-    // Compute effective offset for rendering
+  
+    // Vertical adjustments
+    // If ship goes above the top threshold, pan up.
+    if (rocketScreenY < topThreshold) {
+      this.cameraOffsetY += (this.rocket.pos.y - topThreshold - this.cameraOffsetY) * 0.1;
+      this.cameraPannedUp = true;
+    }
+  
+    // If camera has been panned up and ship is in the bottom half, pan down.
+    if (this.cameraPannedUp && rocketScreenY > bottomHalf) {
+      // Gradually reduce cameraOffsetY, ensuring we don't overshoot.
+      this.cameraOffsetY -= (this.cameraOffsetY) * 0.1;
+      // Lock camera once close to the ground level.
+      if (this.cameraOffsetY < 1) {
+        this.cameraOffsetY = 0;
+        this.cameraPannedUp = false;
+      }
+    }
+  
+    // Normalize horizontal offset for terrain rendering.
     this.cameraOffsetX = ((this.absoluteCameraOffsetX % TOTAL_TERRAIN_LENGTH) + TOTAL_TERRAIN_LENGTH) % TOTAL_TERRAIN_LENGTH;
-    // console.log("Effective cameraOffsetX: ", this.cameraOffsetX);
   }
 
   checkCollision() {
@@ -249,7 +274,17 @@ export class Game {
     this.ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
   
     // Draw the terrain using the effective camera offset.
-    this.terrain.draw(this.ctx, this.cameraOffsetX);
+    this.terrain.draw(this.ctx, this.cameraOffsetX, this.cameraOffsetY);
+
+    // Draw the atmosphere boundary.
+    this.ctx.save();
+    this.ctx.setLineDash([5, 5]); // 5px dash, 5px gap
+    this.ctx.strokeStyle = 'white'; // or another color that fits your game
+    this.ctx.beginPath();
+    this.ctx.moveTo(0, KARMIN_LINE - this.cameraOffsetY);
+    this.ctx.lineTo(SCREEN_WIDTH, KARMIN_LINE - this.cameraOffsetY);
+    this.ctx.stroke();
+    this.ctx.restore(); // resets the dash setting
   
     // Compute the effective x position for the rocket.
     // This maps the rocket’s global x (offset by the continuous camera offset)
@@ -262,7 +297,7 @@ export class Game {
     // Draw the rocket at its effective x position.
     // Here we assume that drawAt handles positioning correctly (centered on x, for example).
     this.ctx.save();
-    this.rocket.drawAt(this.ctx, effectiveShipX, this.rocket.pos.y);
+    this.rocket.drawAt(this.ctx, effectiveShipX, this.rocket.pos.y - this.cameraOffsetY);
     this.ctx.restore();
   
     // Draw UI elements (which remain in fixed screen coordinates).
