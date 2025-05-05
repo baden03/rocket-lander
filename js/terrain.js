@@ -2,6 +2,7 @@
 // version 0.0.2
 
 import { getBaseSurfaceY } from "./ui.js";
+import { BuildingFactory, Building } from "./buildingFactory.js";
 export const TOTAL_TERRAIN_LENGTH = 10000; // Total horizontal length
 
 export class Terrain {
@@ -9,6 +10,7 @@ export class Terrain {
     this.points = [];
     this.landingPad = null; // { start, end }
     this.buildings = []; // Array to store cityscape buildings
+    this.lowestTerrainPoint = getBaseSurfaceY();
     this.generateTerrain();
     this.generateCityscape();
   }
@@ -17,6 +19,8 @@ export class Terrain {
     console.log("generateTerrain");
     const baseY = getBaseSurfaceY();
     let x = 0;
+    this.lowestTerrainPoint = baseY;
+    
     while (x < TOTAL_TERRAIN_LENGTH) {
       let y;
       // Place a landing pad between 900 and 1100 world units (only once)
@@ -26,6 +30,10 @@ export class Terrain {
         x += 100; // Skip over landing pad area
       } else {
         y = baseY - (Math.random() * 50 - 25);
+        // Update lowest point if this point is lower
+        if (y > this.lowestTerrainPoint) {
+          this.lowestTerrainPoint = y;
+        }
         x += 10 + Math.random() * 30;
       }
       this.points.push({ x, y });
@@ -45,27 +53,19 @@ export class Terrain {
     // Generate buildings across the terrain
     let x = 0;
     while (x < TOTAL_TERRAIN_LENGTH) {
-      // Skip the landing pad area
-      if (!(x >= 850 && x <= 1150)) {
-        // Random chance to place a building
-        if (Math.random() < 0.3) {
-          const height = 30 + Math.random() * 100; // Random height between 30 and 130
-          const width = 20 + Math.random() * 30; // Random width between 20 and 50
-          const isBlue = Math.random() < 0.5; // 50% chance for each color
-          
-          // Find the ground height at this position
-          const groundY = this.getTerrainHeightAt(x);
-          
-          this.buildings.push({
-            x,
-            y: groundY,
-            width,
-            height,
-            isBlue
-          });
+        // Skip the landing pad area
+        if (!(x >= 850 && x <= 1150)) {
+            // Random chance to place a building
+            if (Math.random() < 0.3) {
+                // Randomize color with varying probabilities
+                const isBlue = Math.random() < 0.4; // 40% chance for blue buildings
+                
+                // Use the BuildingFactory's random building generator
+                const building = BuildingFactory.createRandomBuilding(x, this.lowestTerrainPoint, isBlue);
+                this.buildings.push(building);
+            }
         }
-      }
-      x += 60 + Math.random() * 40; // Space between potential building positions
+        x += 60 + Math.random() * 40; // Space between potential building positions
     }
   }
 
@@ -86,12 +86,11 @@ export class Terrain {
   // We draw three copies (for i = -1, 0, 1) to cover the visible range.
   draw(ctx, cameraOffsetX = 0, cameraOffsetY = 0) {
     for (let i = -1; i <= 1; i++) {
+      // First draw the terrain
       ctx.beginPath();
       for (let j = 0; j < this.points.length; j++) {
         const point = this.points[j];
-        // Shift each copy by i * TOTAL_TERRAIN_LENGTH
         const worldX = point.x + i * TOTAL_TERRAIN_LENGTH;
-        // Compute screen position relative to both horizontal and vertical camera offsets.
         const screenX = worldX - cameraOffsetX;
         const screenY = point.y - cameraOffsetY;
         if (j === 0) {
@@ -102,50 +101,11 @@ export class Terrain {
       }
       ctx.strokeStyle = "white";
       ctx.stroke();
-
-      // Draw buildings for this section
-      this.buildings.forEach(building => {
-        const buildingX = building.x + i * TOTAL_TERRAIN_LENGTH - cameraOffsetX;
-        const buildingY = building.y - cameraOffsetY;
-        
-        ctx.save();
-        // Main building color
-        ctx.fillStyle = building.isBlue ? '#4a90e2' : '#e67e22';
-        ctx.fillRect(buildingX, buildingY - building.height, building.width, building.height);
-        
-        // Darker outline
-        ctx.strokeStyle = building.isBlue ? '#2c3e50' : '#d35400';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(buildingX, buildingY - building.height, building.width, building.height);
-        
-        // Windows
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-        const windowSize = 4;
-        const windowSpacing = 8;
-        const windowsPerRow = Math.floor(building.width / windowSpacing) - 1;
-        const windowRows = Math.floor(building.height / windowSpacing) - 1;
-        
-        for (let row = 0; row < windowRows; row++) {
-          for (let col = 0; col < windowsPerRow; col++) {
-            if (Math.random() < 0.7) { // 70% chance for a window to be visible
-              ctx.fillRect(
-                buildingX + (col + 1) * windowSpacing,
-                buildingY - building.height + (row + 1) * windowSpacing,
-                windowSize,
-                windowSize
-              );
-            }
-          }
-        }
-        ctx.restore();
-      });
     }
-    
     
     // Draw the landing pad on all copies.
     if (this.landingPad) {
       const padWidth = this.landingPad.end - this.landingPad.start;
-      // Adjust the landing pad's y-coordinate with cameraOffsetY.
       const padY = getBaseSurfaceY() - cameraOffsetY;
       for (let i = -1; i <= 1; i++) {
         const padScreenX = this.landingPad.start + i * TOTAL_TERRAIN_LENGTH - cameraOffsetX;
@@ -157,6 +117,16 @@ export class Terrain {
         ctx.strokeRect(padScreenX, padY, padWidth, 5);
         ctx.restore();
       }
+    }
+
+    // Draw orange buildings in front
+    for (let i = -1; i <= 1; i++) {
+      this.buildings.forEach(building => {
+        if (building.isBlue) return;
+        const buildingX = building.x + i * TOTAL_TERRAIN_LENGTH - cameraOffsetX;
+        const buildingY = building.y - cameraOffsetY;
+        building.draw(ctx, buildingX, buildingY);
+      });
     }
   }
 
@@ -201,17 +171,14 @@ export class Terrain {
     // Adjust the horizontal offset for parallax.
     const adjustedCameraOffsetX = cameraOffsetX * SECONDARY_SPEED_FACTOR;
     
-    // Draw the secondary terrain (tiled as needed).
+    // Draw the secondary terrain first
     for (let i = -1; i <= 1; i++) {
       ctx.beginPath();
       for (let j = 0; j < this.points.length; j++) {
         const point = this.points[j];
-        // Scale the x-coordinate.
         const scaledX = point.x * SCALE_X;
-        // Offset for tiling.
         const worldX = scaledX + i * secondaryTerrainLength;
         const screenX = worldX - adjustedCameraOffsetX;
-        // Apply the dynamic vertical offset. Subtract cameraOffsetY so it follows the main camera vertically.
         const screenY = (point.y - dynamicSecondaryVerticalOffset) - cameraOffsetY;
         
         if (j === 0) {
@@ -222,6 +189,23 @@ export class Terrain {
       }
       ctx.strokeStyle = "#777777";
       ctx.stroke();
+
+      // Draw blue buildings in the background with parallax effect
+      this.buildings.forEach(building => {
+        if (!building.isBlue) return;
+        const buildingX = (building.x * SCALE_X) + i * secondaryTerrainLength - adjustedCameraOffsetX;
+        const buildingY = (building.y - dynamicSecondaryVerticalOffset) - cameraOffsetY;
+        
+        ctx.save();
+        // Scale the context for the building
+        ctx.scale(SCALE_X, SCALE_X);
+        // Convert coordinates back to unscaled space
+        const unscaledX = buildingX / SCALE_X;
+        const unscaledY = buildingY / SCALE_X;
+        // Draw using original building's draw function
+        building.draw(ctx, unscaledX, unscaledY);
+        ctx.restore();
+      });
     }
   }
 }
