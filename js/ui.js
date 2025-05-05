@@ -118,11 +118,14 @@ export function drawDashboard(ctx, game) {
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  // Landing pad indicator.
+  // Landing pad indicator and distance calculation
+  let distanceText = "N/A";
   if (game.terrain.landingPad) {
     // Calculate landing pad center (global x).
     const padCenter = (game.terrain.landingPad.start + game.terrain.landingPad.end) / 2;
     const shipX = game.rocket.pos.x;
+    const shipY = game.rocket.pos.y;
+    const padY = getBaseSurfaceY(); // Landing pad Y position
 
     // Compute horizontal difference, adjusted for wrapping.
     let dx = padCenter - shipX;
@@ -132,6 +135,21 @@ export function drawDashboard(ctx, game) {
     } else if (dx < -halfTerrain) {
       dx += TOTAL_TERRAIN_LENGTH;
     }
+
+    // Calculate vertical difference
+    const dy = padY - shipY;
+
+    // Calculate absolute distance in meters (2 pixels = 1 meter)
+    // Using Pythagorean theorem: distance = sqrt(dx² + dy²)
+    const distanceInMeters = Math.sqrt(dx * dx + dy * dy) / 2;
+    
+    // Format distance string
+    if (distanceInMeters < 1000) {
+      distanceText = `${Math.round(distanceInMeters)}m`;
+    } else {
+      distanceText = `${(distanceInMeters / 1000).toFixed(2)}km`;
+    }
+
     // Map dx to an angle in degrees.
     let relativeAngleDeg = (dx / TOTAL_TERRAIN_LENGTH) * 360;
     // Adjust so that when the ship is directly over the pad, the dot is at 12 o'clock.
@@ -151,22 +169,8 @@ export function drawDashboard(ctx, game) {
 
   // Draw telemetry info in the center of the circle.
   ctx.font = "12px Helvetica";
-  ctx.fillStyle = "white";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  // Example telemetry: Vertical Speed, Horizontal Drift, Tilt Angle.
-  /*
-  const telemetryText = 
-    `V:${game.rocket.vel.y.toFixed(1)} m/s\n` +
-    `H:${game.rocket.vel.x.toFixed(1)} m/s\n` +
-    `T:${game.rocket.angle.toFixed(0)}°`;
-  const lines = telemetryText.split("\n");
-  const lineHeight = 14;
-  lines.forEach((line, i) => {
-    ctx.fillText(line, circleCenterX, circleCenterY + (i - (lines.length - 1) / 2) * lineHeight);
-  });
-  */
-
 
   const vs = game.rocket.vel.y;
   const hs = game.rocket.vel.x;
@@ -179,12 +183,18 @@ export function drawDashboard(ctx, game) {
 
   // Define vertical spacing.
   const lineHeight = 14;
+  const startY = circleCenterY - lineHeight * 1.5; // Move up to make room for distance
+
   ctx.fillStyle = vsColor;
-  ctx.fillText(`V:${vs.toFixed(1)} m/s`, circleCenterX, circleCenterY - lineHeight);
+  ctx.fillText(`V:${vs.toFixed(1)} m/s`, circleCenterX, startY);
   ctx.fillStyle = hsColor;
-  ctx.fillText(`H:${hs.toFixed(1)} m/s`, circleCenterX, circleCenterY);
+  ctx.fillText(`H:${hs.toFixed(1)} m/s`, circleCenterX, startY + lineHeight);
   ctx.fillStyle = tiltColor;
-  ctx.fillText(`T:${tilt.toFixed(0)}°`, circleCenterX, circleCenterY + lineHeight);
+  ctx.fillText(`T:${tilt.toFixed(0)}°`, circleCenterX, startY + lineHeight * 2);
+  
+  // Draw distance
+  ctx.fillStyle = "white";
+  ctx.fillText(`D:${distanceText}`, circleCenterX, startY + lineHeight * 3);
 
   ctx.restore();
 }

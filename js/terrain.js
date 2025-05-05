@@ -8,7 +8,9 @@ export class Terrain {
   constructor() {
     this.points = [];
     this.landingPad = null; // { start, end }
+    this.buildings = []; // Array to store cityscape buildings
     this.generateTerrain();
+    this.generateCityscape();
   }
 
   generateTerrain() {
@@ -36,6 +38,50 @@ export class Terrain {
     //console.log(this.landingPad);
   }
 
+  generateCityscape() {
+    // Clear existing buildings
+    this.buildings = [];
+    
+    // Generate buildings across the terrain
+    let x = 0;
+    while (x < TOTAL_TERRAIN_LENGTH) {
+      // Skip the landing pad area
+      if (!(x >= 850 && x <= 1150)) {
+        // Random chance to place a building
+        if (Math.random() < 0.3) {
+          const height = 30 + Math.random() * 100; // Random height between 30 and 130
+          const width = 20 + Math.random() * 30; // Random width between 20 and 50
+          const isBlue = Math.random() < 0.5; // 50% chance for each color
+          
+          // Find the ground height at this position
+          const groundY = this.getTerrainHeightAt(x);
+          
+          this.buildings.push({
+            x,
+            y: groundY,
+            width,
+            height,
+            isBlue
+          });
+        }
+      }
+      x += 60 + Math.random() * 40; // Space between potential building positions
+    }
+  }
+
+  getTerrainHeightAt(x) {
+    // Find the terrain height at a given x position
+    for (let i = 1; i < this.points.length; i++) {
+      if (this.points[i].x > x) {
+        const prev = this.points[i - 1];
+        const curr = this.points[i];
+        const t = (x - prev.x) / (curr.x - prev.x);
+        return prev.y + (curr.y - prev.y) * t;
+      }
+    }
+    return getBaseSurfaceY();
+  }
+
   // Draw the terrain given a horizontal camera offset.
   // We draw three copies (for i = -1, 0, 1) to cover the visible range.
   draw(ctx, cameraOffsetX = 0, cameraOffsetY = 0) {
@@ -56,6 +102,43 @@ export class Terrain {
       }
       ctx.strokeStyle = "white";
       ctx.stroke();
+
+      // Draw buildings for this section
+      this.buildings.forEach(building => {
+        const buildingX = building.x + i * TOTAL_TERRAIN_LENGTH - cameraOffsetX;
+        const buildingY = building.y - cameraOffsetY;
+        
+        ctx.save();
+        // Main building color
+        ctx.fillStyle = building.isBlue ? '#4a90e2' : '#e67e22';
+        ctx.fillRect(buildingX, buildingY - building.height, building.width, building.height);
+        
+        // Darker outline
+        ctx.strokeStyle = building.isBlue ? '#2c3e50' : '#d35400';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(buildingX, buildingY - building.height, building.width, building.height);
+        
+        // Windows
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        const windowSize = 4;
+        const windowSpacing = 8;
+        const windowsPerRow = Math.floor(building.width / windowSpacing) - 1;
+        const windowRows = Math.floor(building.height / windowSpacing) - 1;
+        
+        for (let row = 0; row < windowRows; row++) {
+          for (let col = 0; col < windowsPerRow; col++) {
+            if (Math.random() < 0.7) { // 70% chance for a window to be visible
+              ctx.fillRect(
+                buildingX + (col + 1) * windowSpacing,
+                buildingY - building.height + (row + 1) * windowSpacing,
+                windowSize,
+                windowSize
+              );
+            }
+          }
+        }
+        ctx.restore();
+      });
     }
     
     
